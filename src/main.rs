@@ -19,13 +19,12 @@ impl Size {
     fn from_arg(arg: &str) -> Size {
         let char: String = arg.chars()
             .filter(|c| c.is_alphabetic())
-            .last()
+            .next()
             .unwrap_or('b')
             .to_lowercase()
             .to_string();
 
         let size: u64 = arg[0..arg.len()-1].parse().expect("Unable to parse size");
-        println!("{}, {}", char, size);
         match char.as_ref() {
             "b" => Byte(size),
             "k" => Kilobyte(size),
@@ -51,16 +50,32 @@ fn main() {
     let args = args();
     let min_size: Size = Size::from_arg(args.value_of("size").unwrap());
     let min_size: u64 = min_size.as_bytes();
-    let paths: ReadDir = fs::read_dir("./").unwrap();
-    paths.filter_map(|p| p.ok())
-        .map(|p| p.path())
-        .filter(|p| p.is_file())
-        .filter(|f: &PathBuf| {
+
+    explore(fs::read_dir("./").unwrap(), 0, 5).iter()
+        .filter(|f: &&PathBuf| {
             let meta = f.metadata().expect("Unable to read metadata");
             meta.len() > min_size
         })
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .for_each(|f| println!("{:?}", f));
+}
+
+fn explore(path: ReadDir, depth: u32, max_depth: u32) -> Vec<PathBuf> {
+    let (files, dirs) = path.filter_map(|p| p.ok())
+        .map(|p| p.path())
+        .partition(|p| p.is_file());
+
+    if depth == max_depth {
+        files
+    } else {
+        let mut recursive_files: Vec<PathBuf> = dirs.iter()
+            .map(|p| explore(fs::read_dir(p.canonicalize().unwrap()).unwrap(), depth, max_depth + 1))
+            .flatten()
+            .collect();
+
+        recursive_files.extend(files);
+        recursive_files
+    }
 }
 
 pub fn args<'a>() -> ArgMatches<'a> {
