@@ -52,34 +52,37 @@ fn main() {
     let min_size: u64 = min_size.as_bytes();
     let max_depth: u32 = args.value_of("depth").unwrap().parse().unwrap();
     let limit: usize = args.value_of("limit").unwrap_or(&std::u64::MAX.to_string()).parse().unwrap();
+    let limit: u64 = limit as u64;
 
-    explore(fs::read_dir("./").unwrap(), 0, max_depth).iter()
-        .filter(|f: &&PathBuf| {
-            let meta = f.metadata().expect("Unable to read metadata");
-            meta.len() > min_size
-        })
-        .take(limit)
-        .map(|f| f.canonicalize().expect("Unable to get canonical path"))
-        .for_each(|f| println!("{:?}", f));
+    explore(fs::read_dir("./").unwrap(), max_depth, limit, min_size);
 }
 
-fn explore(path: ReadDir, depth: u32, max_depth: u32) -> Vec<PathBuf> {
+fn explore(path: ReadDir, rem_depth: u32, find: u64, min_size: u64) -> u64 {
     let (files, dirs) = path.filter_map(|p| p.ok())
         .map(|p| p.path())
         .partition(|p| p.is_file());
 
-    if depth == max_depth {
-        files
-    } else {
-        let mut recursive_files: Vec<PathBuf> = dirs.iter()
-            .filter_map(|p| read_dirs(p).ok())
-            .map(|p| explore(p, depth + 1, max_depth))
-            .flatten()
-            .collect();
+    let files: Vec<PathBuf> = files;
 
-        recursive_files.extend(files);
-        recursive_files
+    let found: usize = files.iter()
+        .filter(|f: &&PathBuf| {
+            let meta = f.metadata().expect("Unable to read metadata");
+            meta.len() > min_size
+        })
+        .take(find as usize)
+        .map(|f| f.canonicalize().expect("Unable to get canonical path"))
+        .inspect(|f| println!("{:?}", f))
+        .count();
+
+    let mut remaining: u64 = find - found as u64;
+
+    if rem_depth > 0 && remaining > 0 {
+        dirs.iter()
+            .filter_map(|p| read_dirs(p).ok())
+            .for_each(|p| remaining -= explore(p, rem_depth - 1, remaining, min_size));
     }
+
+    find - remaining
 }
 
 fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
