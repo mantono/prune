@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate clap;
+extern crate humansize;
 
+use humansize::{FileSize, file_size_opts as options};
 use std::fs;
-use std::fs::ReadDir;
+use std::fs::{ReadDir};
 use std::path::PathBuf;
 use clap::{ArgMatches, App, Arg};
 use crate::Size::{Byte, Kilobyte, Megabyte, Gigabyte, Terabyte};
@@ -71,7 +73,7 @@ fn explore(path: ReadDir, rem_depth: u32, find: u64, min_size: u64) -> u64 {
         })
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
-        .inspect(|f| println!("{:?}", f))
+        .inspect(|f| print_file(f))
         .count();
 
     let mut remaining: u64 = find - found as u64;
@@ -88,6 +90,12 @@ fn explore(path: ReadDir, rem_depth: u32, find: u64, min_size: u64) -> u64 {
 fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
     let full_path: PathBuf = path.canonicalize()?;
     Ok(fs::read_dir(full_path)?)
+}
+
+fn print_file(file: &PathBuf) {
+    let canon: PathBuf = file.canonicalize().expect("Unable to get canonical path");
+    let size = file.metadata().unwrap().len().file_size(options::CONVENTIONAL).unwrap();
+    println!("{}, {:?}", size, canon)
 }
 
 pub fn args<'a>() -> ArgMatches<'a> {
