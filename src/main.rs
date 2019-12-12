@@ -50,8 +50,10 @@ fn main() {
     let args = args();
     let min_size: Size = Size::from_arg(args.value_of("size").unwrap());
     let min_size: u64 = min_size.as_bytes();
+    let max_depth: u32 = args.value_of("depth").unwrap().parse().unwrap();
+    println!("max depth: {}", max_depth);
 
-    explore(fs::read_dir("./").unwrap(), 0, 5).iter()
+    explore(fs::read_dir("./").unwrap(), 0, max_depth).iter()
         .filter(|f: &&PathBuf| {
             let meta = f.metadata().expect("Unable to read metadata");
             meta.len() > min_size
@@ -69,7 +71,7 @@ fn explore(path: ReadDir, depth: u32, max_depth: u32) -> Vec<PathBuf> {
         files
     } else {
         let mut recursive_files: Vec<PathBuf> = dirs.iter()
-            .map(|p| explore(fs::read_dir(p.canonicalize().unwrap()).unwrap(), depth, max_depth + 1))
+            .map(|p| explore(fs::read_dir(p.canonicalize().unwrap()).unwrap(), depth + 1, max_depth))
             .flatten()
             .collect();
 
@@ -89,6 +91,8 @@ pub fn args<'a>() -> ArgMatches<'a> {
 
     let depth = Arg::with_name("depth")
         .takes_value(true)
+        .default_value("128")
+        .max_values(1024)
         .short("d")
         .long("depth")
         .required(false)
