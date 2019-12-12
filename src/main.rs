@@ -17,8 +17,23 @@ enum Size {
 
 impl Size {
     fn from_arg(arg: &str) -> Size {
-        let char = arg.chars().take_while(|c| c.is_alphabetic()).last().expect("No chars found").to_lowercase();
-        let size = arg.chars().take_while(|c| c.is_ascii_digit())
+        let char: String = arg.chars()
+            .filter(|c| c.is_alphabetic())
+            .last()
+            .unwrap_or('b')
+            .to_lowercase()
+            .to_string();
+
+        let size: u64 = arg[0..arg.len()-1].parse().expect("Unable to parse size");
+        println!("{}, {}", char, size);
+        match char.as_ref() {
+            "b" => Byte(size),
+            "k" => Kilobyte(size),
+            "m" => Megabyte(size),
+            "g" => Gigabyte(size),
+            "t" => Terabyte(size),
+            _ => panic!("Invalid size type '{}'", char)
+        }
     }
 
     fn as_bytes(&self) -> u64 {
@@ -32,21 +47,20 @@ impl Size {
     }
 }
 
-const ONE_HUNDRED_KILOBYTE: u64 = 100 * 1024;
-
 fn main() {
     let args = args();
+    let min_size: Size = Size::from_arg(args.value_of("size").unwrap());
+    let min_size: u64 = min_size.as_bytes();
     let paths: ReadDir = fs::read_dir("./").unwrap();
     paths.filter_map(|p| p.ok())
         .map(|p| p.path())
         .filter(|p| p.is_file())
-        //.filter_map(|f| f.metadata().ok())
         .filter(|f: &PathBuf| {
             let meta = f.metadata().expect("Unable to read metadata");
-            meta.len() > ONE_HUNDRED_KILOBYTE
+            meta.len() > min_size
         })
-        .map(|f| f.canonicalize().expect("Unable to canonicalize path"))
-        .for_each(|f| println!("Name: {:?}", f));
+        .map(|f| f.canonicalize().expect("Unable to get canonical path"))
+        .for_each(|f| println!("{:?}", f));
 }
 
 pub fn args<'a>() -> ArgMatches<'a> {
@@ -60,15 +74,17 @@ pub fn args<'a>() -> ArgMatches<'a> {
 
     let depth = Arg::with_name("depth")
         .takes_value(true)
-        .short("-d")
-        .long("--depth")
+        .short("d")
+        .long("depth")
         .required(false)
         .help("Depth in folder hierarchy")
         .long_help("Descend and search for files in directories with a max depth of this value. A depth of 0 will only look for files at the first level.");
 
-    let limit = Arg::with_name("limit")
+    let size = Arg::with_name("size")
         .default_value("100m")
         .takes_value(true)
+        .short("s")
+        .long("size")
         .multiple(false)
         .required(true)
         .help("Minimum file size")
@@ -80,7 +96,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .author(crate_authors!())
         .arg(path)
         .arg(depth)
-        .arg(limit)
+        .arg(size)
         .get_matches();
 
     return args
