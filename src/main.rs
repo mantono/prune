@@ -51,13 +51,14 @@ fn main() {
     let min_size: Size = Size::from_arg(args.value_of("size").unwrap());
     let min_size: u64 = min_size.as_bytes();
     let max_depth: u32 = args.value_of("depth").unwrap().parse().unwrap();
-    println!("max depth: {}", max_depth);
+    let limit: usize = args.value_of("limit").unwrap_or(&std::u64::MAX.to_string()).parse().unwrap();
 
     explore(fs::read_dir("./").unwrap(), 0, max_depth).iter()
         .filter(|f: &&PathBuf| {
             let meta = f.metadata().expect("Unable to read metadata");
             meta.len() > min_size
         })
+        .take(limit)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .for_each(|f| println!("{:?}", f));
 }
@@ -71,13 +72,19 @@ fn explore(path: ReadDir, depth: u32, max_depth: u32) -> Vec<PathBuf> {
         files
     } else {
         let mut recursive_files: Vec<PathBuf> = dirs.iter()
-            .map(|p| explore(fs::read_dir(p.canonicalize().unwrap()).unwrap(), depth + 1, max_depth))
+            .filter_map(|p| read_dirs(p).ok())
+            .map(|p| explore(p, depth + 1, max_depth))
             .flatten()
             .collect();
 
         recursive_files.extend(files);
         recursive_files
     }
+}
+
+fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
+    let full_path: PathBuf = path.canonicalize()?;
+    Ok(fs::read_dir(full_path)?)
 }
 
 pub fn args<'a>() -> ArgMatches<'a> {
@@ -109,6 +116,13 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Minimum file size")
         .long_help("Only show files which exceeds this file size. For example 400 is equivalent of 400 bytes, 20m is equivalent of 20 megabytes and 5g is equivalent of 5 gigabytes.");
 
+    let limit = Arg::with_name("limit")
+        .takes_value(true)
+        .short("l")
+        .long("limit")
+        .help("Limit how many files to list")
+        .long_help("Only list the first N files found given by this limit");
+
     let args: ArgMatches = App::new(crate_name!())
         .about("Command line tool for finding large files")
         .version(crate_version!())
@@ -116,6 +130,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(path)
         .arg(depth)
         .arg(size)
+        .arg(limit)
         .get_matches();
 
     return args
