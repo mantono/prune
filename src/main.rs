@@ -61,7 +61,13 @@ fn main() {
 }
 
 fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64) -> u64 {
-    let path: ReadDir = read_dirs(&current_dir).unwrap();
+    let path: ReadDir = match read_dirs(&current_dir) {
+        Err(e) => {
+            eprintln!("{}: {:?}", e, current_dir);
+            return 0
+        },
+        Ok(p) => p
+    };
     let (files, dirs) = path.filter_map(|p| p.ok())
         .map(|p| p.path())
         .filter(|p: &PathBuf| !p.symlink_metadata().unwrap().file_type().is_symlink())
