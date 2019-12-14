@@ -4,7 +4,7 @@ extern crate humansize;
 
 use humansize::{FileSize, file_size_opts as options};
 use std::fs;
-use std::fs::{ReadDir};
+use std::fs::{ReadDir, Metadata};
 use std::path::PathBuf;
 use clap::{ArgMatches, App, Arg};
 use crate::Size::{Byte, Kilobyte, Megabyte, Gigabyte, Terabyte};
@@ -70,7 +70,7 @@ fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64) -> u6
     };
     let (files, dirs) = path.filter_map(|p| p.ok())
         .map(|p| p.path())
-        .filter(|p: &PathBuf| !p.symlink_metadata().unwrap().file_type().is_symlink())
+        .filter(|p: &PathBuf| is_valid_target(p))
         .partition(|p| p.is_file());
 
     let files: Vec<PathBuf> = files;
@@ -98,6 +98,16 @@ fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64) -> u6
 fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
     let full_path: PathBuf = path.canonicalize()?;
     Ok(fs::read_dir(full_path)?)
+}
+
+fn is_valid_target(path: &PathBuf) -> bool {
+    let symlink: bool = path.symlink_metadata().unwrap().file_type().is_symlink();
+    if !symlink {
+        let metadata: Metadata = path.metadata().expect("Unable to retrieve metadata:");
+        metadata.is_file() || metadata.is_dir()
+    } else {
+        false
+    }
 }
 
 fn print_file(file: &PathBuf) {
