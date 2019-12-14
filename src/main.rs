@@ -56,12 +56,15 @@ fn main() {
     let limit: usize = args.value_of("limit").unwrap_or(&std::u64::MAX.to_string()).parse().unwrap();
     let limit: u64 = limit as u64;
 
-    explore(fs::read_dir("./").unwrap(), max_depth, limit, min_size);
+    let current_dir = PathBuf::from(".");
+    explore(current_dir, max_depth, limit, min_size);
 }
 
-fn explore(path: ReadDir, rem_depth: u32, find: u64, min_size: u64) -> u64 {
+fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64) -> u64 {
+    let path: ReadDir = read_dirs(&current_dir).unwrap();
     let (files, dirs) = path.filter_map(|p| p.ok())
         .map(|p| p.path())
+        .filter(|p: &PathBuf| !p.symlink_metadata().unwrap().file_type().is_symlink())
         .partition(|p| p.is_file());
 
     let files: Vec<PathBuf> = files;
@@ -80,8 +83,7 @@ fn explore(path: ReadDir, rem_depth: u32, find: u64, min_size: u64) -> u64 {
 
     if rem_depth > 0 && remaining > 0 {
         dirs.iter()
-            .filter_map(|p| read_dirs(p).ok())
-            .for_each(|p| remaining -= explore(p, rem_depth - 1, remaining, min_size));
+            .for_each(|p| remaining -= explore(p.clone(), rem_depth - 1, remaining, min_size));
     }
 
     find - remaining
