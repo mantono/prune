@@ -120,8 +120,8 @@ pub fn args<'a>() -> ArgMatches<'a> {
     let path = Arg::with_name("path")
         .default_value(".")
         .takes_value(true)
+        .required(false)
         .multiple(true)
-        .required(true)
         .help("Paths to look for files in")
         .long_help("Select zero, one or several directories for which to look for files in. If no value is give, the application will default to current directory");
 
@@ -141,7 +141,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .short("s")
         .long("size")
         .multiple(false)
-        .required(true)
+        .required(false)
         .help("Minimum file size")
         .long_help("Only show files which exceeds this file size. For example 400 is equivalent of 400 bytes, 20m is equivalent of 20 megabytes and 5g is equivalent of 5 gigabytes.");
 
@@ -150,7 +150,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .short("l")
         .long("limit")
         .help("Limit how many files to list")
-        .long_help("Only list the first N files found given by this limit");
+        .long_help("Only list the first N files found given by this limit. If no value is set for this option, the application will not stop until it has gone through all files in the directory.");
 
     let args: ArgMatches = App::new(crate_name!())
         .about("Command line tool for finding large files")
