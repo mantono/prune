@@ -54,11 +54,11 @@ fn main() {
     let min_size: u64 = min_size.as_bytes();
     let max_depth: u32 = args.value_of("depth").unwrap().parse().unwrap();
     let limit: usize = args.value_of("limit").unwrap_or(&std::u64::MAX.to_string()).parse().unwrap();
-    let limit: u64 = limit as u64;
+    let mut limit: u64 = limit as u64;
 
     args.values_of("path").unwrap().for_each(|p| {
         let current_dir = PathBuf::from(p);
-        explore(current_dir, max_depth, limit, min_size);
+        limit -= explore(current_dir, max_depth, limit, min_size);
     });
 }
 
@@ -130,6 +130,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
     let depth = Arg::with_name("depth")
         .takes_value(true)
         .default_value("128")
+        .min_values(1)
         .max_values(1024)
         .short("d")
         .long("depth")
@@ -150,6 +151,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
     let limit = Arg::with_name("limit")
         .takes_value(true)
         .short("l")
+        .min_values(1)
         .long("limit")
         .help("Limit how many files to list")
         .long_help("Only list the first N files found given by this limit. If no value is set for this option, the application will not stop until it has gone through all files in the directory.");
