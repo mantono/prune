@@ -40,7 +40,7 @@ below (`-d 5`) stopping when ten files (`-l 10`) have been found.
 Symlinks will never be followed, as this could potentially result in infinite loops when traversing through directories.
 
 ## Building
-The application is built with cargo. Simply run the following command in the project directory.
+The application is built with [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html). Simply run the following command in the project directory.
 ```bash
 cargo build --release
 ```
