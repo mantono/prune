@@ -56,8 +56,10 @@ fn main() {
     let limit: usize = args.value_of("limit").unwrap_or(&std::u64::MAX.to_string()).parse().unwrap();
     let limit: u64 = limit as u64;
 
-    let current_dir = PathBuf::from(".");
-    explore(current_dir, max_depth, limit, min_size);
+    args.values_of("path").unwrap().for_each(|p| {
+        let current_dir = PathBuf::from(p);
+        explore(current_dir, max_depth, limit, min_size);
+    });
 }
 
 fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64) -> u64 {
