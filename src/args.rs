@@ -57,7 +57,7 @@ fn validate_size(size: String) -> Result<(), String> {
     if regex.is_match(size.as_str()) {
         Ok(())
     } else {
-        let error: String = format!("Input is not valid size: '{}'", size);
+        let error: String = format!("Input is not a valid size: '{}'", size);
         Err(error)
     }
 }
