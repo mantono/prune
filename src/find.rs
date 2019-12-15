@@ -25,7 +25,7 @@ pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, f
     let found: usize = files.iter()
         .filter(|f: &&PathBuf| {
             let meta = f.metadata().expect("Unable to read metadata");
-            meta.len() > min_size
+            meta.len() >= min_size
         })
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
@@ -54,5 +54,72 @@ fn is_valid_target(path: &PathBuf) -> bool {
         metadata.is_file() || metadata.is_dir()
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use crate::find::explore;
+    use crate::find::tests::cf::Saver;
+
+    #[test]
+    fn test_depth_only_root_dir() {
+        let mut save = Saver::new(10);
+        let current_dir = PathBuf::from("test_dirs");
+        let found: u64 = explore(current_dir, 0, 100, 1, &mut save);
+        assert_eq!(1, found);
+        assert_eq!("file0", save.files.first().unwrap().file_name().unwrap());
+    }
+
+    #[test]
+    fn test_depth_one() {
+        let mut save = Saver::new(10);
+        let current_dir = PathBuf::from("test_dirs");
+        let found: u64 = explore(current_dir, 1, 100, 1, &mut save);
+        assert_eq!(3, found);
+        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file0"));
+        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file1"));
+        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file2"));
+    }
+
+    #[test]
+    fn test_stop_at_one_found_file() {
+        let mut save = Saver::new(5);
+        let current_dir = PathBuf::from("test_dirs");
+        let found: u64 = explore(current_dir, 3, 1, 1, &mut save);
+        assert_eq!(1, found);
+    }
+
+    #[test]
+    fn test_filter_by_file_size() {
+        let mut save = Saver::new(5);
+        let current_dir = PathBuf::from("test_dirs");
+        let found: u64 = explore(current_dir, 3, 10, 100, &mut save);
+        assert_eq!(1, found);
+        assert_eq!("file2", save.files.first().unwrap().file_name().unwrap());
+    }
+
+    mod cf {
+        use std::path::PathBuf;
+        use crate::find::ConsumeFile;
+
+        pub struct Saver {
+            pub files: Vec<PathBuf>
+        }
+
+        impl Saver {
+            pub fn new(capacity: usize) -> Saver {
+                Saver {
+                    files: Vec::with_capacity(capacity)
+                }
+            }
+        }
+
+        impl ConsumeFile for Saver {
+            fn submit(&mut self, file: &PathBuf) {
+                self.files.push(file.to_path_buf())
+            }
+        }
     }
 }

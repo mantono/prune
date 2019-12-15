@@ -2,17 +2,12 @@
 extern crate clap;
 extern crate humansize;
 mod find;
-mod lib;
 mod args;
 
-use find::explore;
 use humansize::{FileSize, file_size_opts as options};
-use std::fs;
-use std::fs::{ReadDir, Metadata};
 use std::path::PathBuf;
-use clap::{ArgMatches, App, Arg};
 use crate::Size::{Byte, Kilobyte, Megabyte, Gigabyte, Terabyte};
-use crate::find::find::{explore, ConsumeFile};
+use crate::find::{explore, ConsumeFile};
 
 enum Size {
     Byte(u64),
@@ -54,7 +49,7 @@ impl Size {
 }
 
 fn main() {
-    let args = args();
+    let args = args::args();
     let min_size: Size = Size::from_arg(args.value_of("size").unwrap());
     let min_size: u64 = min_size.as_bytes();
     let max_depth: u32 = args.value_of("depth").unwrap().parse().unwrap();
