@@ -6,47 +6,8 @@ mod args;
 
 use humansize::{FileSize, file_size_opts as options};
 use std::path::PathBuf;
-use crate::Size::{Byte, Kilobyte, Megabyte, Gigabyte, Terabyte};
 use crate::find::{explore, ConsumeFile};
-
-enum Size {
-    Byte(u64),
-    Kilobyte(u64),
-    Megabyte(u64),
-    Gigabyte(u64),
-    Terabyte(u64)
-}
-
-impl Size {
-    fn from_arg(arg: &str) -> Size {
-        let char: String = arg.chars()
-            .filter(|c| c.is_alphabetic())
-            .next()
-            .unwrap_or('b')
-            .to_lowercase()
-            .to_string();
-
-        let size: u64 = arg[0..arg.len()-1].parse().expect("Unable to parse size");
-        match char.as_ref() {
-            "b" => Byte(size),
-            "k" => Kilobyte(size),
-            "m" => Megabyte(size),
-            "g" => Gigabyte(size),
-            "t" => Terabyte(size),
-            _ => panic!("Invalid size type '{}'", char)
-        }
-    }
-
-    fn as_bytes(&self) -> u64 {
-        match self {
-            &Byte(n) => n,
-            &Kilobyte(n) => 1024 * n,
-            &Megabyte(n) => 1024 * 1024 * n,
-            &Gigabyte(n) => 1024 * 1024 * 1024 * n,
-            &Terabyte(n) => 1024 * 1024 * 1024 * 1024 * n,
-        }
-    }
-}
+use crate::args::Size;
 
 fn main() {
     let args = args::args();
