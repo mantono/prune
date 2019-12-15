@@ -12,8 +12,6 @@ pub fn args<'a>() -> ArgMatches<'a> {
     let depth = Arg::with_name("depth")
         .takes_value(true)
         .default_value("128")
-        .min_values(1)
-        .max_values(1024)
         .short("d")
         .long("depth")
         .required(false)
@@ -33,7 +31,6 @@ pub fn args<'a>() -> ArgMatches<'a> {
     let limit = Arg::with_name("limit")
         .takes_value(true)
         .short("l")
-        .min_values(1)
         .long("limit")
         .help("Limit how many files to list")
         .long_help("Only list the first N files found given by this limit. If no value is set for this option, the application will not stop until it has gone through all files in the directory.");
