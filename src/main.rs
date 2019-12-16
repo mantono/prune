@@ -11,14 +11,12 @@ use crate::find::{explore, SideEffect};
 use crate::cfg::Config;
 
 fn main() {
-    let args = args::args();
-    let cfg: Config = Config::from_args(args);
+    let cfg: Config = Config::from_args(args::args());
     let mut limit: u64 = cfg.limit as u64;
-    let mut printer = PrintFile;
 
     cfg.paths.iter().for_each(|p| {
         let current_dir = PathBuf::from(p);
-        limit -= explore(current_dir, cfg.max_depth, limit, cfg.min_size, &mut printer);
+        limit -= explore(current_dir, cfg.max_depth, limit, cfg.min_size, &mut PrintFile);
     });
 }
 
