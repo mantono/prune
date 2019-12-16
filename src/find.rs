@@ -23,10 +23,7 @@ pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, f
     let files: Vec<PathBuf> = files;
 
     let found: usize = files.iter()
-        .filter(|f: &&PathBuf| {
-            let meta = f.metadata().expect("Unable to read metadata");
-            meta.len() >= min_size
-        })
+        .filter(|f: &&PathBuf| filter_size(*f, min_size))
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .inspect(|f| fc.submit(f))
@@ -42,18 +39,37 @@ pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, f
     find - remaining
 }
 
+fn filter_size(file: &PathBuf, min_size: u64) -> bool {
+    match file.metadata() {
+        Ok(meta) => meta.len() >= min_size,
+        Err(e) => {
+            eprintln!("{}: {:?}", e, file);
+            false
+        }
+    }
+}
+
 fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
     let full_path: PathBuf = path.canonicalize()?;
     Ok(fs::read_dir(full_path)?)
 }
 
 fn is_valid_target(path: &PathBuf) -> bool {
-    let symlink: bool = path.symlink_metadata().unwrap().file_type().is_symlink();
-    if !symlink {
+    if !is_symlink(path) {
         let metadata: Metadata = path.metadata().expect("Unable to retrieve metadata:");
         metadata.is_file() || metadata.is_dir()
     } else {
         false
+    }
+}
+
+fn is_symlink(path: &PathBuf) -> bool {
+    match path.symlink_metadata() {
+        Ok(sym) => sym.file_type().is_symlink(),
+        Err(err) => {
+            eprintln!("{}: {:?}", err, path);
+            false
+        }
     }
 }
 
