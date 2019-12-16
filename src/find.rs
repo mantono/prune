@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use std::fs::{ReadDir, Metadata};
 use std::fs;
 
-pub trait ConsumeFile {
+pub trait SideEffect {
     fn submit(&mut self, file: &PathBuf);
 }
 
-pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn ConsumeFile) -> u64 {
+pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> u64 {
     let path: ReadDir = match read_dirs(&current_dir) {
         Err(e) => {
             eprintln!("{}: {:?}", e, current_dir);
@@ -118,7 +118,7 @@ mod tests {
 
     mod cf {
         use std::path::PathBuf;
-        use crate::find::ConsumeFile;
+        use crate::find::SideEffect;
 
         pub struct Saver {
             pub files: Vec<PathBuf>
@@ -132,7 +132,7 @@ mod tests {
             }
         }
 
-        impl ConsumeFile for Saver {
+        impl SideEffect for Saver {
             fn submit(&mut self, file: &PathBuf) {
                 self.files.push(file.to_path_buf())
             }
