@@ -1,26 +1,24 @@
 #[macro_use]
 extern crate clap;
 extern crate humansize;
+mod cfg;
 mod find;
 mod args;
 
 use humansize::{FileSize, file_size_opts as options};
 use std::path::PathBuf;
 use crate::find::{explore, ConsumeFile};
-use crate::args::Size;
+use crate::cfg::Config;
 
 fn main() {
     let args = args::args();
-    let min_size: Size = Size::from_arg(args.value_of("size").unwrap());
-    let min_size: u64 = min_size.as_bytes();
-    let max_depth: u32 = args.value_of("depth").unwrap().parse().unwrap();
-    let limit: usize = args.value_of("limit").unwrap_or(&std::u64::MAX.to_string()).parse().unwrap();
-    let mut limit: u64 = limit as u64;
+    let cfg: Config = Config::from_args(args);
+    let mut limit: u64 = cfg.limit as u64;
     let mut printer = FilePrinter;
 
-    args.values_of("path").unwrap().for_each(|p| {
+    cfg.paths.iter().for_each(|p| {
         let current_dir = PathBuf::from(p);
-        limit -= explore(current_dir, max_depth, limit, min_size, &mut printer);
+        limit -= explore(current_dir, cfg.max_depth, limit, cfg.min_size, &mut printer);
     });
 }
 
