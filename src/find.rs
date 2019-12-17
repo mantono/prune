@@ -8,56 +8,75 @@ pub trait SideEffect {
     fn submit(&mut self, file: &PathBuf);
 }
 
-pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> u64 {
-    let files = FileExplorer::for_path(&current_dir, rem_depth);
+pub fn explore(current_dir: PathBuf, max_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> u64 {
+    let files = FileExplorer::for_path(&current_dir, max_depth);
     files
-        .filter(|f: &&PathBuf| filter_size(*f, min_size))
+        .filter(|f: &PathBuf| filter_size(f, min_size))
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .inspect(|f| fc.submit(f))
-        //.map(|f| f.metadata().unwrap().len())
         .count() as u64
 }
 
-struct FileExplorer<'a> {
-    files: VecDeque<&'a PathBuf>,
-    dirs: VecDeque<&'a PathBuf>,
-    rem_depth: u32
+struct FileExplorer {
+    files: VecDeque<PathBuf>,
+    dirs: VecDeque<PathBuf>,
+    origin: PathBuf,
+    max_depth: u32
 }
 
-impl<'a> FileExplorer<'a> {
-    pub fn for_path(path: &PathBuf, max_depth: u32) -> &FileExplorer {
-        let (files, dirs) = FileExplorer::load(path);
-        let dirs = VecDeque::from(dirs);
+impl FileExplorer {
+    pub fn for_path(path: &PathBuf, max_depth: u32) -> FileExplorer {
+        let (files, dirs) = FileExplorer::load(path).expect("Unable to load path");
+        let dirs = if max_depth > 0 {
+            VecDeque::from(dirs)
+        } else {
+            VecDeque::with_capacity(0)
+        };
         let files = VecDeque::from(files);
-        &FileExplorer {
+        FileExplorer {
             files,
             dirs,
-            rem_depth: max_depth
+            origin: path.clone(),
+            max_depth
         }
     }
 
-    fn load(path: &PathBuf) -> (Vec<PathBuf>, Vec<PathBuf>) {
-        let path: ReadDir = read_dirs(&path).unwrap();
-        path.filter_map(|p| p.ok())
+    fn load(path: &PathBuf) -> Result<(Vec<PathBuf>, Vec<PathBuf>), std::io::Error> {
+        let path: ReadDir = read_dirs(&path)?;
+        let (files, dirs) = path.filter_map(|p| p.ok())
             .map(|p| p.path())
             .filter(|p: &PathBuf| is_valid_target(p))
-            .partition(|p| p.is_file())
+            .partition(|p| p.is_file());
+        Ok((files, dirs))
     }
 
     fn push(&mut self, path: &PathBuf) {
-        let (files, dirs) = FileExplorer::load(path);
-        self.files.extend(files);
-        self.dirs.extend(dirs);
+        match FileExplorer::load(path) {
+            Ok((files, dirs)) => {
+                self.files.extend(files);
+                let current_depth: u32 = self.depth(path) as u32;
+                if current_depth < self.max_depth {
+                    self.dirs.extend(dirs);
+                }
+            },
+            Err(e) => eprintln!("{}: {:?}", e, path)
+        }
+    }
+
+    fn depth(&self, dir: &PathBuf) -> usize {
+        let comps0 = self.origin.canonicalize().unwrap().components().count();
+        let comps1 = dir.canonicalize().unwrap().components().count();
+        comps1 - comps0
     }
 }
 
-impl<'a> Iterator for FileExplorer<'a> {
-    type Item = &'a PathBuf;
+impl Iterator for FileExplorer {
+    type Item = PathBuf;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.files.pop_front() {
-            Some(f) => Some(&f),
+            Some(f) => Some(f),
             None => match self.dirs.pop_front() {
                 Some(d) => {
                     self.push(&d);
