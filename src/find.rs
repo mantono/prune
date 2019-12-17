@@ -8,14 +8,17 @@ pub trait SideEffect {
     fn submit(&mut self, file: &PathBuf);
 }
 
-pub fn explore(current_dir: PathBuf, max_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> u64 {
+pub fn explore(current_dir: PathBuf, max_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> (u64, u64) {
     let files = FileExplorer::for_path(&current_dir, max_depth);
-    files
+    let sizes: Vec<u64> = files
         .filter(|f: &PathBuf| filter_size(f, min_size))
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .inspect(|f| fc.submit(f))
-        .count() as u64
+        .map(|f| f.metadata().unwrap().len())
+        .collect();
+
+    (sizes.len() as u64, sizes.iter().sum())
 }
 
 struct FileExplorer {
@@ -132,8 +135,8 @@ mod tests {
     fn test_depth_only_root_dir() {
         let mut save = Saver::new(10);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 0, 100, 1, &mut save);
-        assert_eq!(1, found);
+        let result: (u64, u64) = explore(current_dir, 0, 100, 1, &mut save);
+        assert_eq!(1, result.0);
         assert_eq!("file0", save.files.first().unwrap().file_name().unwrap());
     }
 
@@ -141,8 +144,8 @@ mod tests {
     fn test_depth_one() {
         let mut save = Saver::new(10);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 1, 100, 1, &mut save);
-        assert_eq!(3, found);
+        let result: (u64, u64) = explore(current_dir, 1, 100, 1, &mut save);
+        assert_eq!(3, result.0);
         assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file0"));
         assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file1"));
         assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file2"));
@@ -152,16 +155,16 @@ mod tests {
     fn test_stop_at_one_found_file() {
         let mut save = Saver::new(5);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 3, 1, 1, &mut save);
-        assert_eq!(1, found);
+        let result: (u64, u64) = explore(current_dir, 3, 1, 1, &mut save);
+        assert_eq!(1, result.0);
     }
 
     #[test]
     fn test_filter_by_file_size() {
         let mut save = Saver::new(5);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 3, 10, 100, &mut save);
-        assert_eq!(1, found);
+        let result: (u64, u64) = explore(current_dir, 3, 10, 100, &mut save);
+        assert_eq!(1, result.0);
         assert_eq!("file2", save.files.first().unwrap().file_name().unwrap());
     }
 
