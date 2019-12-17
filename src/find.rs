@@ -2,66 +2,53 @@
 use std::path::PathBuf;
 use std::fs::{ReadDir, Metadata};
 use std::fs;
+use std::collections::VecDeque;
 
 pub trait SideEffect {
     fn submit(&mut self, file: &PathBuf);
 }
 
-pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> (u64, u64) {
-    let path: ReadDir = match read_dirs(&current_dir) {
-        Err(e) => {
-            eprintln!("{}: {:?}", e, current_dir);
-            return (0, 0)
-        },
-        Ok(p) => p
-    };
-    let (files, dirs) = path.filter_map(|p| p.ok())
-        .map(|p| p.path())
-        .filter(|p: &PathBuf| is_valid_target(p))
-        .partition(|p| p.is_file());
-
-    let files: Vec<PathBuf> = files;
-
-    let sizes: Vec<usize> = files.iter()
+pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> u64 {
+    let files = FileExplorer::for_path(&current_dir, rem_depth);
+    files
         .filter(|f: &&PathBuf| filter_size(*f, min_size))
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .inspect(|f| fc.submit(f))
-        .map(|f| f.metadata().unwrap().len())
-        .collect();
-
-    let found: usize = sizes.len();
-    let total_size: u64 = sizes.iter().sum();
-
-    let mut remaining: u64 = find - found as u64;
-
-    if rem_depth > 0 && remaining > 0 {
-        dirs.iter()
-            .for_each(|p| remaining -= explore(p.clone(), rem_depth - 1, remaining, min_size, fc));
-    }
-
-    find - remaining
+        //.map(|f| f.metadata().unwrap().len())
+        .count() as u64
 }
 
 struct FileExplorer<'a> {
-    files: Box<dyn Iterator<Item=&'a PathBuf>>,
-    dirs: Box<dyn Iterator<Item=&'a PathBuf>>,
+    files: VecDeque<&'a PathBuf>,
+    dirs: VecDeque<&'a PathBuf>,
     rem_depth: u32
 }
 
 impl<'a> FileExplorer<'a> {
-    fn for_path(path: &PathBuf, max_depth: u32) -> &FileExplorer {
-        let path: ReadDir = read_dirs(&path).unwrap();
-        let (files, dirs) = path.filter_map(|p| p.ok())
-            .map(|p| p.path())
-            .filter(|p: &PathBuf| is_valid_target(p))
-            .partition(|p| p.is_file());
-
+    pub fn for_path(path: &PathBuf, max_depth: u32) -> &FileExplorer {
+        let (files, dirs) = FileExplorer::load(path);
+        let dirs = VecDeque::from(dirs);
+        let files = VecDeque::from(files);
         &FileExplorer {
             files,
             dirs,
             rem_depth: max_depth
         }
+    }
+
+    fn load(path: &PathBuf) -> (Vec<PathBuf>, Vec<PathBuf>) {
+        let path: ReadDir = read_dirs(&path).unwrap();
+        path.filter_map(|p| p.ok())
+            .map(|p| p.path())
+            .filter(|p: &PathBuf| is_valid_target(p))
+            .partition(|p| p.is_file())
+    }
+
+    fn push(&mut self, path: &PathBuf) {
+        let (files, dirs) = FileExplorer::load(path);
+        self.files.extend(files);
+        self.dirs.extend(dirs);
     }
 }
 
@@ -69,10 +56,14 @@ impl<'a> Iterator for FileExplorer<'a> {
     type Item = &'a PathBuf;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.files.next() {
-            Some(f) => Some(f),
-            None => match self.dirs.next() {
-                Some(d) => d.
+        match self.files.pop_front() {
+            Some(f) => Some(&f),
+            None => match self.dirs.pop_front() {
+                Some(d) => {
+                    self.push(&d);
+                    self.next()
+                },
+                None => None
             }
         }
     }
