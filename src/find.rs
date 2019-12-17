@@ -7,11 +7,11 @@ pub trait SideEffect {
     fn submit(&mut self, file: &PathBuf);
 }
 
-pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> u64 {
+pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> (u64, u64) {
     let path: ReadDir = match read_dirs(&current_dir) {
         Err(e) => {
             eprintln!("{}: {:?}", e, current_dir);
-            return 0
+            return (0, 0)
         },
         Ok(p) => p
     };
@@ -22,12 +22,16 @@ pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, f
 
     let files: Vec<PathBuf> = files;
 
-    let found: usize = files.iter()
+    let sizes: Vec<usize> = files.iter()
         .filter(|f: &&PathBuf| filter_size(*f, min_size))
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .inspect(|f| fc.submit(f))
-        .count();
+        .map(|f| f.metadata().unwrap().len())
+        .collect();
+
+    let found: usize = sizes.len();
+    let total_size: u64 = sizes.iter().sum();
 
     let mut remaining: u64 = find - found as u64;
 
@@ -37,6 +41,41 @@ pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, f
     }
 
     find - remaining
+}
+
+struct FileExplorer<'a> {
+    files: Box<dyn Iterator<Item=&'a PathBuf>>,
+    dirs: Box<dyn Iterator<Item=&'a PathBuf>>,
+    rem_depth: u32
+}
+
+impl<'a> FileExplorer<'a> {
+    fn for_path(path: &PathBuf, max_depth: u32) -> &FileExplorer {
+        let path: ReadDir = read_dirs(&path).unwrap();
+        let (files, dirs) = path.filter_map(|p| p.ok())
+            .map(|p| p.path())
+            .filter(|p: &PathBuf| is_valid_target(p))
+            .partition(|p| p.is_file());
+
+        &FileExplorer {
+            files,
+            dirs,
+            rem_depth: max_depth
+        }
+    }
+}
+
+impl<'a> Iterator for FileExplorer<'a> {
+    type Item = &'a PathBuf;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.files.next() {
+            Some(f) => Some(f),
+            None => match self.dirs.next() {
+                Some(d) => d.
+            }
+        }
+    }
 }
 
 fn filter_size(file: &PathBuf, min_size: u64) -> bool {
