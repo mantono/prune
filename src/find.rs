@@ -145,9 +145,7 @@ mod tests {
         let current_dir = PathBuf::from("test_dirs");
         let result: (u64, u64) = explore(current_dir, 1, 100, 1, &mut save);
         assert_eq!(3, result.0);
-        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file0"));
-        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file1"));
-        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file2"));
+        assert_eq!(182, result.1);
     }
 
     #[test]
@@ -164,6 +162,7 @@ mod tests {
         let current_dir = PathBuf::from("test_dirs");
         let result: (u64, u64) = explore(current_dir, 3, 10, 100, &mut save);
         assert_eq!(1, result.0);
+        assert_eq!(100, result.1);
         assert_eq!("file2", save.files.first().unwrap().file_name().unwrap());
     }
 
