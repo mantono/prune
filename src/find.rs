@@ -9,8 +9,7 @@ pub trait SideEffect {
 }
 
 pub fn explore(current_dir: PathBuf, max_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> (u64, u64) {
-    let files = FileExplorer::for_path(&current_dir, max_depth);
-    let sizes: Vec<u64> = files
+    let files: Vec<u64> = FileExplorer::for_path(&current_dir, max_depth)
         .filter(|f: &PathBuf| filter_size(f, min_size))
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
@@ -18,7 +17,7 @@ pub fn explore(current_dir: PathBuf, max_depth: u32, find: u64, min_size: u64, f
         .map(|f| f.metadata().unwrap().len())
         .collect();
 
-    (sizes.len() as u64, sizes.iter().sum())
+    (files.len() as u64, files.iter().sum())
 }
 
 struct FileExplorer {
