@@ -2,41 +2,92 @@
 use std::path::PathBuf;
 use std::fs::{ReadDir, Metadata};
 use std::fs;
+use std::collections::VecDeque;
 
 pub trait SideEffect {
     fn submit(&mut self, file: &PathBuf);
 }
 
-pub fn explore(current_dir: PathBuf, rem_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> u64 {
-    let path: ReadDir = match read_dirs(&current_dir) {
-        Err(e) => {
-            eprintln!("{}: {:?}", e, current_dir);
-            return 0
-        },
-        Ok(p) => p
-    };
-    let (files, dirs) = path.filter_map(|p| p.ok())
-        .map(|p| p.path())
-        .filter(|p: &PathBuf| is_valid_target(p))
-        .partition(|p| p.is_file());
-
-    let files: Vec<PathBuf> = files;
-
-    let found: usize = files.iter()
-        .filter(|f: &&PathBuf| filter_size(*f, min_size))
+pub fn explore(current_dir: PathBuf, max_depth: u32, find: u64, min_size: u64, fc: &mut dyn SideEffect) -> (u64, u64) {
+    let files: Vec<u64> = FileExplorer::for_path(&current_dir, max_depth)
+        .filter(|f: &PathBuf| filter_size(f, min_size))
         .take(find as usize)
         .map(|f| f.canonicalize().expect("Unable to get canonical path"))
         .inspect(|f| fc.submit(f))
-        .count();
+        .map(|f| f.metadata().unwrap().len())
+        .collect();
 
-    let mut remaining: u64 = find - found as u64;
+    (files.len() as u64, files.iter().sum())
+}
 
-    if rem_depth > 0 && remaining > 0 {
-        dirs.iter()
-            .for_each(|p| remaining -= explore(p.clone(), rem_depth - 1, remaining, min_size, fc));
+struct FileExplorer {
+    files: VecDeque<PathBuf>,
+    dirs: VecDeque<PathBuf>,
+    origin: PathBuf,
+    max_depth: u32
+}
+
+impl FileExplorer {
+    pub fn for_path(path: &PathBuf, max_depth: u32) -> FileExplorer {
+        let (files, dirs) = FileExplorer::load(path).expect("Unable to load path");
+        let dirs = if max_depth > 0 {
+            VecDeque::from(dirs)
+        } else {
+            VecDeque::with_capacity(0)
+        };
+        let files = VecDeque::from(files);
+        FileExplorer {
+            files,
+            dirs,
+            origin: path.clone(),
+            max_depth
+        }
     }
 
-    find - remaining
+    fn load(path: &PathBuf) -> Result<(Vec<PathBuf>, Vec<PathBuf>), std::io::Error> {
+        let path: ReadDir = read_dirs(&path)?;
+        let (files, dirs) = path.filter_map(|p| p.ok())
+            .map(|p| p.path())
+            .filter(|p: &PathBuf| is_valid_target(p))
+            .partition(|p| p.is_file());
+        Ok((files, dirs))
+    }
+
+    fn push(&mut self, path: &PathBuf) {
+        match FileExplorer::load(path) {
+            Ok((files, dirs)) => {
+                self.files.extend(files);
+                let current_depth: u32 = self.depth(path) as u32;
+                if current_depth < self.max_depth {
+                    self.dirs.extend(dirs);
+                }
+            },
+            Err(e) => eprintln!("{}: {:?}", e, path)
+        }
+    }
+
+    fn depth(&self, dir: &PathBuf) -> usize {
+        let comps0 = self.origin.canonicalize().unwrap().components().count();
+        let comps1 = dir.canonicalize().unwrap().components().count();
+        comps1 - comps0
+    }
+}
+
+impl Iterator for FileExplorer {
+    type Item = PathBuf;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.files.pop_front() {
+            Some(f) => Some(f),
+            None => match self.dirs.pop_front() {
+                Some(d) => {
+                    self.push(&d);
+                    self.next()
+                },
+                None => None
+            }
+        }
+    }
 }
 
 fn filter_size(file: &PathBuf, min_size: u64) -> bool {
@@ -83,8 +134,8 @@ mod tests {
     fn test_depth_only_root_dir() {
         let mut save = Saver::new(10);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 0, 100, 1, &mut save);
-        assert_eq!(1, found);
+        let result: (u64, u64) = explore(current_dir, 0, 100, 1, &mut save);
+        assert_eq!(1, result.0);
         assert_eq!("file0", save.files.first().unwrap().file_name().unwrap());
     }
 
@@ -92,27 +143,26 @@ mod tests {
     fn test_depth_one() {
         let mut save = Saver::new(10);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 1, 100, 1, &mut save);
-        assert_eq!(3, found);
-        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file0"));
-        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file1"));
-        assert!(save.files.iter().any(|f| f.file_name().unwrap() == "file2"));
+        let result: (u64, u64) = explore(current_dir, 1, 100, 1, &mut save);
+        assert_eq!(3, result.0);
+        assert_eq!(182, result.1);
     }
 
     #[test]
     fn test_stop_at_one_found_file() {
         let mut save = Saver::new(5);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 3, 1, 1, &mut save);
-        assert_eq!(1, found);
+        let result: (u64, u64) = explore(current_dir, 3, 1, 1, &mut save);
+        assert_eq!(1, result.0);
     }
 
     #[test]
     fn test_filter_by_file_size() {
         let mut save = Saver::new(5);
         let current_dir = PathBuf::from("test_dirs");
-        let found: u64 = explore(current_dir, 3, 10, 100, &mut save);
-        assert_eq!(1, found);
+        let result: (u64, u64) = explore(current_dir, 3, 10, 100, &mut save);
+        assert_eq!(1, result.0);
+        assert_eq!(100, result.1);
         assert_eq!("file2", save.files.first().unwrap().file_name().unwrap());
     }
 
