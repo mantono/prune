@@ -4,18 +4,18 @@ extern crate humansize;
 mod cfg;
 mod find;
 mod args;
+mod expl;
 
 use humansize::{FileSize, file_size_opts as options};
 use std::path::PathBuf;
-use crate::find::{FileExplorer, summarize, filter_size};
+use crate::find::{summarize, filter_size};
 use crate::cfg::Config;
-
-type FileIterator = dyn Iterator<Item=PathBuf>;
+use crate::expl::FileExplorer;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
 
-    let files: Vec<&PathBuf> = cfg.paths.iter()
+    let files: Vec<PathBuf> = cfg.paths.iter()
         .map(|p| PathBuf::from(p))
         .flat_map(|path: PathBuf| FileExplorer::for_path(&path, cfg.max_depth))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
