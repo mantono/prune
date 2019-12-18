@@ -17,10 +17,10 @@ FLAGS:
 OPTIONS:
     -d, --depth <depth>    
             Descend and search for files in directories with a max depth of this value. A depth of 0 will only look for
-            files at the first level. [default: 128]
+            files at the first level. By default the depth is unlimited.
     -l, --limit <limit>    
             Only list the first N files found given by this limit. If no value is set for this option, the application
-            will not stop until it has gone through all files in the directory.
+            will not stop until it has gone through all files in the directory and subdirectories.
     -s, --size <size>      
             Only show files which exceeds this file size. For example 400 is equivalent of 400 bytes, 20m is equivalent
             of 20 megabytes and 5g is equivalent of 5 gigabytes. [default: 100m]
