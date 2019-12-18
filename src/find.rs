@@ -101,7 +101,7 @@ impl Iterator for FileExplorer {
     }
 }
 
-fn filter_size(file: &PathBuf, min_size: u64) -> bool {
+pub fn filter_size(file: &PathBuf, min_size: u64) -> bool {
     match file.metadata() {
         Ok(meta) => meta.len() >= min_size,
         Err(e) => {
