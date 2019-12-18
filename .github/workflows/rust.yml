@@ -2,7 +2,11 @@ name: Rust
 on: [push]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      max-parallel: 3
+      matrix:
+        os: [Linux, macOS, Windows]
     steps:
     - uses: actions/checkout@v1
     - uses: actions/cache@v1
