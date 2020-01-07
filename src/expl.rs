@@ -1,18 +1,19 @@
 
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::fs::{ReadDir, Metadata};
-use std::fs;
+use std::{fs, io};
 use std::collections::VecDeque;
+use std::io::Error;
 
-pub struct FileExplorer {
-    files: VecDeque<PathBuf>,
-    dirs: VecDeque<PathBuf>,
-    origin: PathBuf,
+pub struct FileExplorer<T: PathEntry> {
+    files: VecDeque<T>,
+    dirs: VecDeque<T>,
+    origin: T,
     max_depth: u32
 }
 
-impl FileExplorer {
-    pub fn for_path(path: &PathBuf, max_depth: u32) -> FileExplorer {
+impl<T: PathEntry> FileExplorer<T> {
+    pub fn for_path(path: &T, max_depth: u32) -> FileExplorer<T> {
         let (files, dirs) = FileExplorer::load(path).expect("Unable to load path");
         let dirs = if max_depth > 0 {
             VecDeque::from(dirs)
@@ -28,16 +29,14 @@ impl FileExplorer {
         }
     }
 
-    fn load(path: &PathBuf) -> Result<(Vec<PathBuf>, Vec<PathBuf>), std::io::Error> {
-        let path: ReadDir = read_dirs(&path)?;
-        let (files, dirs) = path.filter_map(|p| p.ok())
-            .map(|p| p.path())
-            .filter(|p: &PathBuf| is_valid_target(p))
+    fn load(path: &T) -> Result<(Vec<T>, Vec<T>), std::io::Error> {
+        let (files, dirs) = path.children()?
+            .filter(|p: &T| is_valid_target(p))
             .partition(|p| p.is_file());
         Ok((files, dirs))
     }
 
-    fn push(&mut self, path: &PathBuf) {
+    fn push(&mut self, path: &T) {
         match FileExplorer::load(path) {
             Ok((files, dirs)) => {
                 self.files.extend(files);
@@ -57,8 +56,8 @@ impl FileExplorer {
     }
 }
 
-impl Iterator for FileExplorer {
-    type Item = PathBuf;
+impl<T: PathEntry> Iterator for FileExplorer<T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.files.pop_front() {
@@ -74,27 +73,51 @@ impl Iterator for FileExplorer {
     }
 }
 
-fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
-    let full_path: PathBuf = path.canonicalize()?;
+fn read_dirs<T: PathEntry>(path: &T) -> Result<ReadDir, std::io::Error> {
+    let full_path: T = path.canonical()?;
     Ok(fs::read_dir(full_path)?)
 }
 
-fn is_valid_target(path: &PathBuf) -> bool {
-    if !is_symlink(path) {
-        let metadata: Metadata = path.metadata().expect("Unable to retrieve metadata:");
-        metadata.is_file() || metadata.is_dir()
-    } else {
-        false
-    }
+fn is_valid_target<T: PathEntry>(path: &T) -> bool {
+    !path.is_symlink() && (path.is_dir() || path.is_file())
 }
 
-fn is_symlink(path: &PathBuf) -> bool {
-    match path.symlink_metadata() {
-        Ok(sym) => sym.file_type().is_symlink(),
-        Err(err) => {
-            eprintln!("{}: {:?}", err, path);
-            false
+pub trait PathEntry: AsRef<Path> + Clone + Sized {
+    fn is_symlink(&self) -> bool;
+    fn is_file(&self) -> bool;
+    fn is_dir(&self) -> bool;
+    fn children(&self) -> Result<&dyn Iterator<Item=Self>, std::io::Error>;
+    fn canonical(&self) -> io::Result<Self>;
+}
+
+impl PathEntry for PathBuf {
+    fn is_symlink(&self) -> bool {
+        match self.symlink_metadata() {
+            Ok(sym) => sym.file_type().is_symlink(),
+            Err(err) => {
+                eprintln!("{}: {:?}", err, self);
+                false
+            }
         }
+    }
+
+    fn is_file(&self) -> bool {
+        self.metadata().expect("Unable to retrieve metadata:").is_file()
+    }
+
+    fn is_dir(&self) -> bool {
+        self.metadata().expect("Unable to retrieve metadata:").is_dir()
+    }
+
+    fn children(&self) ->Result<&dyn Iterator<Item=Self>, std::io::Error> {
+        let path: ReadDir = read_dirs(&self).unwrap();
+        path.filter_map(|p| p.ok())
+            .map(|p| p.path())
+            .it
+    }
+
+    fn canonical(&self) -> Result<Self, Error> {
+        self.canonicalize()
     }
 }
 
