@@ -8,7 +8,7 @@ mod expl;
 
 use humansize::{FileSize, file_size_opts as options};
 use std::path::PathBuf;
-use crate::find::{summarize, filter_size};
+use crate::find::{summarize, filter_size, filter_name};
 use crate::cfg::Config;
 use crate::expl::FileExplorer;
 
@@ -19,6 +19,7 @@ fn main() {
         .map(|p| PathBuf::from(p))
         .flat_map(|path: PathBuf| FileExplorer::for_path(&path, cfg.max_depth))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
+        .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .take(cfg.limit)
         .inspect(|f| print(f))
         .collect();

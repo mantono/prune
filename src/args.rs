@@ -1,5 +1,5 @@
-use clap::{ArgMatches, App, Arg};
-use crate::args::Size::{Byte, Kilobyte, Megabyte, Gigabyte, Terabyte};
+use crate::args::Size::{Byte, Gigabyte, Kilobyte, Megabyte, Terabyte};
+use clap::{App, Arg, ArgMatches};
 
 pub fn args<'a>() -> ArgMatches<'a> {
     let path = Arg::with_name("path")
@@ -8,7 +8,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .required(false)
         .multiple(true)
         .help("Paths to look for files in")
-        .long_help("Select zero, one or several directories for which to look for files in. If no value is give, the application will default to current directory");
+        .long_help("Select zero, one or several directories for which to look for files in. If no value is give, the application will default to current directory.");
 
     let depth = Arg::with_name("depth")
         .takes_value(true)
@@ -29,6 +29,15 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Minimum file size")
         .long_help("Only show files which exceeds this file size. For example 400 is equivalent of 400 bytes, 20m is equivalent of 20 megabytes and 5g is equivalent of 5 gigabytes.");
 
+    let pattern = Arg::with_name("pattern")
+        .takes_value(true)
+        .short("p")
+        .long("pattern")
+        .multiple(false)
+        .required(false)
+        .help("Filter files by regex pattern")
+        .long_help("Only include and count files matching the regular expression.");
+
     let limit = Arg::with_name("limit")
         .takes_value(true)
         .short("l")
@@ -43,10 +52,11 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(path)
         .arg(depth)
         .arg(size)
+        .arg(pattern)
         .arg(limit)
         .get_matches();
 
-    return args
+    return args;
 }
 
 use regex::Regex;
@@ -66,27 +76,27 @@ pub enum Size {
     Kilobyte(u64),
     Megabyte(u64),
     Gigabyte(u64),
-    Terabyte(u64)
+    Terabyte(u64),
 }
 
 impl Size {
-
     pub fn from_arg(arg: &str) -> Size {
-        let char: String = arg.chars()
+        let char: String = arg
+            .chars()
             .filter(|c| c.is_alphabetic())
             .next()
             .unwrap_or('b')
             .to_lowercase()
             .to_string();
 
-        let size: u64 = arg[0..arg.len()-1].parse().expect("Unable to parse size");
+        let size: u64 = arg[0..arg.len() - 1].parse().expect("Unable to parse size");
         match char.as_ref() {
             "b" => Byte(size),
             "k" => Kilobyte(size),
             "m" => Megabyte(size),
             "g" => Gigabyte(size),
             "t" => Terabyte(size),
-            _ => panic!("Invalid size type '{}'", char)
+            _ => panic!("Invalid size type '{}'", char),
         }
     }
 
