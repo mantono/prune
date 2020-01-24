@@ -71,6 +71,19 @@ fn validate_size(size: String) -> Result<(), String> {
     }
 }
 
+fn number_from_size(size: &String) -> Result<u64, String> {
+    let regex = Regex::new(r"^\d+").unwrap();
+    let match_str: &str = match regex.find(&size) {
+        Some(m) => m.as_str(),
+        None => return Err(String::from("No match for size"))
+    };
+    let number: u64 = match match_str.parse() {
+        Ok(n) => n,
+        Err(_) => return Err(String::from("Unable to parse int"))
+    };
+    Ok(number)
+}
+
 pub enum Size {
     Byte(u64),
     Kilobyte(u64),
@@ -89,7 +102,7 @@ impl Size {
             .to_lowercase()
             .to_string();
 
-        let size: u64 = arg[0..arg.len() - 1].parse().expect("Unable to parse size");
+        let size: u64 = number_from_size(&arg.to_string()).unwrap();
         match char.as_ref() {
             "b" => Byte(size),
             "k" => Kilobyte(size),
@@ -113,7 +126,7 @@ impl Size {
 
 #[cfg(test)]
 mod tests {
-    use crate::args::validate_size;
+    use crate::args::{validate_size, number_from_size};
 
     #[test]
     fn validate_size_bytes() {
@@ -155,5 +168,23 @@ mod tests {
     #[test]
     fn validate_size_fail_invalid_unit() {
         assert!(validate_size(String::from("5j")).is_err());
+    }
+
+    #[test]
+    fn number_from_size_triple_digit_kilobytes() {
+        let size: u64 = number_from_size(&String::from("100k")).expect("Expected a number");
+        assert_eq!(100, size);
+    }
+
+    #[test]
+    fn number_from_size_triple_digit_implicit_byte() {
+        let size: u64 = number_from_size(&String::from("100")).expect("Expected a number");
+        assert_eq!(100, size);
+    }
+
+    #[test]
+    fn number_from_size_single_digit_implicit_byte() {
+        let size: u64 = number_from_size(&String::from("5")).expect("Expected a number");
+        assert_eq!(5, size);
     }
 }
