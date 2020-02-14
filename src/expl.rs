@@ -46,7 +46,7 @@ impl FileExplorer {
                     self.dirs.extend(dirs);
                 }
             },
-            Err(e) => eprintln!("{}: {:?}", e, path)
+            Err(e) => log::warn!("{}: {:?}", e, path)
         }
     }
 
@@ -92,7 +92,7 @@ fn is_symlink(path: &PathBuf) -> bool {
     match path.symlink_metadata() {
         Ok(sym) => sym.file_type().is_symlink(),
         Err(err) => {
-            eprintln!("{}: {:?}", err, path);
+            log::warn!("{}: {:?}", err, path);
             false
         }
     }

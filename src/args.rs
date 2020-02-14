@@ -45,6 +45,23 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Limit how many files to list")
         .long_help("Only list the first N files found given by this limit. If no value is set for this option, the application will not stop until it has gone through all files in the directory and subdirectories.");
 
+    let verbosity = Arg::with_name("verbosity")
+        .takes_value(true)
+        .default_value("1")
+        .validator(|n: String| {
+            let range = 0u8..=5u8;
+            let n: u8 = n.parse::<u8>().unwrap();
+            if range.contains(&n) {
+                Ok(())
+            } else {
+                Err("Invalid value".to_string())
+            }
+        })
+        .short("v")
+        .long("verbosity")
+        .help("Set verbosity level, 0 - 5")
+        .long_help("Set the verbosity level, from 0 (least amount of output) to 5 (most verbose). Note that logging level configured via RUST_LOG overrides this setting.");
+
     let args: ArgMatches = App::new(crate_name!())
         .about("Command line tool for finding large files")
         .version(crate_version!())
@@ -54,6 +71,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(size)
         .arg(pattern)
         .arg(limit)
+        .arg(verbosity)
         .get_matches();
 
     return args;

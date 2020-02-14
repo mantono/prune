@@ -5,15 +5,18 @@ mod cfg;
 mod find;
 mod args;
 mod expl;
+mod logger;
 
 use humansize::{FileSize, file_size_opts as options};
 use std::path::PathBuf;
 use crate::find::{summarize, filter_size, filter_name};
 use crate::cfg::Config;
 use crate::expl::FileExplorer;
+use crate::logger::setup_logging;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
+    setup_logging(cfg.verbosity_level);
 
     let files: Vec<PathBuf> = cfg.paths.iter()
         .map(|p| PathBuf::from(p))
@@ -33,5 +36,5 @@ fn main() {
 fn print(file: &PathBuf) {
     let canon: PathBuf = file.canonicalize().expect("Unable to get canonical path");
     let size = file.metadata().unwrap().len().file_size(options::CONVENTIONAL).unwrap();
-    println!("{}, {:?}", size, canon)
+    println!("{}, {:?}", size, canon);
 }
