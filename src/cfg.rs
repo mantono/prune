@@ -9,6 +9,7 @@ pub struct Config {
     pub max_depth: u32,
     pub limit: usize,
     pub pattern: Option<Regex>,
+    pub verbosity_level: u8
 }
 
 impl Config {
@@ -33,13 +34,15 @@ impl Config {
         let pattern: Option<Regex> = args
             .value_of("pattern")
             .map(|p| Regex::from_str(p).expect("Unable to parse regex"));
+        let verbosity_level: u8 = args.value_of("verbosity").unwrap().parse::<u8>().unwrap();
 
         Config {
             paths,
             min_size,
             max_depth,
             limit,
-            pattern
+            pattern,
+            verbosity_level
         }
     }
 }

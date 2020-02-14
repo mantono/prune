@@ -14,7 +14,7 @@ pub fn filter_size(file: &PathBuf, min_size: u64) -> bool {
     match file.metadata() {
         Ok(meta) => meta.len() >= min_size,
         Err(e) => {
-            eprintln!("{}: {:?}", e, file);
+            log::warn!("{}: {:?}", e, file);
             false
         }
     }
