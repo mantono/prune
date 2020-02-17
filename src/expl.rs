@@ -8,11 +8,12 @@ pub struct FileExplorer {
     files: VecDeque<PathBuf>,
     dirs: VecDeque<PathBuf>,
     origin: PathBuf,
-    max_depth: u32
+    max_depth: u32,
+    fs_filter: Option<Vec<PathBuf>>
 }
 
 impl FileExplorer {
-    pub fn for_path(path: &PathBuf, max_depth: u32) -> FileExplorer {
+    pub fn for_path(path: &PathBuf, max_depth: u32, fs_filter: Option<Vec<PathBuf>>) -> FileExplorer {
         let (files, dirs) = FileExplorer::load(path).expect("Unable to load path");
         let dirs = if max_depth > 0 {
             VecDeque::from(dirs)
@@ -24,7 +25,8 @@ impl FileExplorer {
             files,
             dirs,
             origin: path.clone(),
-            max_depth
+            max_depth,
+            fs_filter
         }
     }
 
@@ -108,14 +110,14 @@ mod tests {
     #[test]
     fn test_depth_only_root_dir() {
         let dir = PathBuf::from(TEST_DIR);
-        let found = FileExplorer::for_path(&dir, 0).count();
+        let found = FileExplorer::for_path(&dir, 0, None).count();
         assert_eq!(1, found);
     }
 
     #[test]
     fn test_depth_one() {
         let dir = PathBuf::from(TEST_DIR);
-        let found = FileExplorer::for_path(&dir, 1).count();
+        let found = FileExplorer::for_path(&dir, 1, None).count();
         assert_eq!(3, found);
     }
 }

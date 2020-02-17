@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn test_stop_at_one_found_file() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = FileExplorer::for_path(&dir, 10).take(1).collect();
+        let files: Vec<PathBuf> = FileExplorer::for_path(&dir, 10, None).take(1).collect();
         let result: (u64, u64) = summarize(files);
         assert_eq!(1, result.0);
     }
@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = FileExplorer::for_path(&dir, 10)
+        let files: Vec<PathBuf> = FileExplorer::for_path(&dir, 10, None)
             .filter(|f| filter_size(f, 100))
             .collect();
 
@@ -64,7 +64,7 @@ mod tests {
     fn test_filter_by_file_pattern() {
         let dir = PathBuf::from(TEST_DIR);
         let pattern: Option<Regex> = Some(Regex::from_str("file[01]$").unwrap());
-        let files: Vec<PathBuf> = FileExplorer::for_path(&dir, 10)
+        let files: Vec<PathBuf> = FileExplorer::for_path(&dir, 10, None)
             .filter(|f| filter_name(f, &pattern))
             .collect();
 
