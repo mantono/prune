@@ -6,6 +6,7 @@ mod find;
 mod args;
 mod expl;
 mod logger;
+mod prefix_tree;
 
 use humansize::{FileSize, file_size_opts as options};
 use std::path::PathBuf;
