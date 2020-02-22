@@ -11,8 +11,8 @@ enum Node {
 }
 
 impl PrefixTree {
-    fn new(paths: &Vec<String>) -> PrefixTree {
-        let mut paths: Vec<String> = paths.clone();
+    fn new(paths: &Vec<&str>) -> PrefixTree {
+        let mut paths: Vec<&str> = paths.clone();
         sort_paths(&mut paths);
 
         PrefixTree {
@@ -28,13 +28,13 @@ trait PathResolver {
 
 /// Sort paths so paths with least amount of sub directories comes first,
 /// and addtionally, so the root path `/` always comes first.
-fn sort_paths(paths: &mut Vec<String>) {
-    paths.sort_by(|p0: &String, p1: &String| {
-        let p0_len = p0.matches("/").collect::<Vec<&str>>().len();
-        let p1_len = p1.matches("/").collect::<Vec<&str>>().len();
-        if p0_len < p1_len || p0 == "/" {
+fn sort_paths(paths: &mut Vec<&str>) {
+    paths.sort_by(|p0, p1| {
+        let p0_len = p0.matches('/').count();
+        let p1_len = p1.matches('/').count();
+        if p0_len < p1_len || *p0 == "/" {
             Ordering::Less
-        } else if p0_len > p1_len || p1 == "/" {
+        } else if p0_len > p1_len || *p1 == "/" {
             Ordering::Greater
         } else {
             Ordering::Equal
@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn test_sort_path() {
-        let mut paths: Vec<String> = vec![
+        let mut paths: Vec<&str> = vec![
             "/proc",
             "/sys",
             "/sys/firmware/efi/efivars",
@@ -61,14 +61,11 @@ mod tests {
             "/sys/fs/cgroup/memory",
             "/sys/fs/cgroup/cpu,cpuacct",
             "/sys/fs/cgroup/freezer",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+        ];
 
         super::sort_paths(&mut paths);
 
-        let expected: Vec<String> = vec![
+        let expected: Vec<&str> = vec![
             "/",
             "/proc",
             "/sys",
@@ -82,10 +79,7 @@ mod tests {
             "/sys/fs/cgroup/memory",
             "/sys/fs/cgroup/cpu,cpuacct",
             "/sys/fs/cgroup/freezer",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+        ];
 
         assert_eq!(expected, paths);
     }

@@ -1,19 +1,22 @@
-
-use std::path::PathBuf;
-use std::fs::{ReadDir, Metadata};
-use std::fs;
 use std::collections::VecDeque;
+use std::fs;
+use std::fs::{Metadata, ReadDir};
+use std::path::PathBuf;
 
 pub struct FileExplorer {
     files: VecDeque<PathBuf>,
     dirs: VecDeque<PathBuf>,
     origin: PathBuf,
     max_depth: u32,
-    fs_filter: Option<Vec<PathBuf>>
+    fs_filter: Option<Vec<PathBuf>>,
 }
 
 impl FileExplorer {
-    pub fn for_path(path: &PathBuf, max_depth: u32, fs_filter: Option<Vec<PathBuf>>) -> FileExplorer {
+    pub fn for_path(
+        path: &PathBuf,
+        max_depth: u32,
+        fs_filter: Option<Vec<PathBuf>>,
+    ) -> FileExplorer {
         let (files, dirs) = FileExplorer::load(path).expect("Unable to load path");
         let dirs = if max_depth > 0 {
             VecDeque::from(dirs)
@@ -26,13 +29,14 @@ impl FileExplorer {
             dirs,
             origin: path.clone(),
             max_depth,
-            fs_filter
+            fs_filter,
         }
     }
 
     fn load(path: &PathBuf) -> Result<(Vec<PathBuf>, Vec<PathBuf>), std::io::Error> {
         let path: ReadDir = read_dirs(&path)?;
-        let (files, dirs) = path.filter_map(|p| p.ok())
+        let (files, dirs) = path
+            .filter_map(|p| p.ok())
             .map(|p| p.path())
             .filter(|p: &PathBuf| is_valid_target(p))
             .partition(|p| p.is_file());
@@ -47,8 +51,8 @@ impl FileExplorer {
                 if current_depth < self.max_depth {
                     self.dirs.extend(dirs);
                 }
-            },
-            Err(e) => log::warn!("{}: {:?}", e, path)
+            }
+            Err(e) => log::warn!("{}: {:?}", e, path),
         }
     }
 
@@ -69,9 +73,9 @@ impl Iterator for FileExplorer {
                 Some(d) => {
                     self.push(&d);
                     self.next()
-                },
-                None => None
-            }
+                }
+                None => None,
+            },
         }
     }
 }
@@ -102,8 +106,8 @@ fn is_symlink(path: &PathBuf) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
     use crate::expl::FileExplorer;
+    use std::path::PathBuf;
 
     const TEST_DIR: &str = "test_dirs";
 
