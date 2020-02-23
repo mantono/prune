@@ -1,12 +1,13 @@
 use crate::prefix_tree::Node::Leaf;
 use std::cmp::Ordering;
 use std::net::Shutdown::Read;
+use std::str::FromStr;
 
 struct PrefixTree {
     filesystems: Node,
 }
 
-#[derive(Eq)]
+#[derive(Eq, Debug)]
 enum Node {
     Branch(String, Vec<Node>),
     Leaf(String),
@@ -20,34 +21,6 @@ enum Relationship {
 }
 
 impl Node {
-    fn connect(n0: Node, n1: Node) -> Result<Node, &str> {
-        match relationship(n0, n1) {
-            Relationship::Equal => Ok(n0),
-            Relationship::Sibling => Err(format!("Unable to find common ancestor for paths {} and {}", n0.path(), n1.path()).as_str()),
-            Relationship::Ancestor => Ok(n0),
-            Relationship::Descendant => TODO("I am too tired for this right now")
-        }
-    }
-
-    fn relationship(n0: Node, n1: Node) -> Relationship {
-        let mut path0 = n0.path();
-        let mut path1 = n1.path();
-        while !path0.is_empty() && !path1.is_empty() {
-            let c0: char = path0.pop().unwrap();
-            let c1: char = path1.pop().unwrap();
-            if c1 != c0 {
-                return Relationship::Sibling
-            }
-        }
-        if path0.len() < path1.len() {
-            Relationship::Ancestor
-        } else if path0.len() > path1.len() {
-            Relationship::Descendant
-        } else {
-            Relationship::Equal
-        }
-    }
-
     fn path(&self) -> String {
         match self {
             Node::Branch(path, _) => path,
@@ -75,16 +48,51 @@ impl PartialEq for Node {
     }
 }
 
+fn connect(n0: Node, n1: Node) -> Node {
+    match relationship(&n0, &n1) {
+        Relationship::Equal => n0,
+        Relationship::Ancestor => n0,
+        Relationship::Descendant => n0,
+        Relationship::Sibling => {
+            let msg: String = format!("Unable to find common ancestor for paths {} and {}", n0.path(), n1.path());
+            panic!(msg)
+        }
+    }
+}
+
+fn relationship(n0: &Node, n1: &Node) -> Relationship {
+    let mut path0: String = dbg!(n0.path().as_str().chars().rev().collect());
+    let mut path1: String = dbg!(n1.path().as_str().chars().rev().collect());
+    while !path0.is_empty() && !path1.is_empty() {
+        let c0: char = dbg!(path0.pop().unwrap());
+        let c1: char = dbg!(path1.pop().unwrap());
+        if dbg!(c1 != c0) {
+            return Relationship::Sibling
+        }
+    }
+    if path0.len() < path1.len() {
+        Relationship::Ancestor
+    } else if path0.len() > path1.len() {
+        Relationship::Descendant
+    } else {
+        Relationship::Equal
+    }
+}
+
 impl PrefixTree {
     pub fn new(paths: &Vec<&str>) -> PrefixTree {
         let mut paths: Vec<&str> = paths.clone();
         sort_paths(&mut paths);
 
-        let nodes: Vec<Node> = paths.iter().map(|p| Node::Leaf(p.to_string())).collect();
+        let root: Node = Node::Leaf(String::from("/"));
+
+        let root: Node = paths
+            .iter()
+            .map(|p| Node::Leaf(p.to_string()))
+            .fold(root, |n0, n1| connect(n0, n1));
 
         PrefixTree {
-            // TODO: Initialize properly!
-            filesystems: Leaf(String::from("/")),
+            filesystems: dbg!(root)
         }
     }
 //
@@ -128,7 +136,7 @@ fn sort_paths(paths: &mut Vec<&str>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::prefix_tree::PrefixTree;
+    use crate::prefix_tree::{PrefixTree, Node};
 
     #[test]
     fn test_sort_path() {
@@ -186,5 +194,25 @@ mod tests {
         ];
 
         let tree = PrefixTree::new(&paths);
+
+        assert_eq!("/", tree.filesystems.path());
+
+        let expected_children: Vec<String> = vec![
+            "/proc",
+            "/sys",
+            "/dev",
+            "/run",
+            "/tmp",
+            "/home",
+            "/boot"
+        ].iter().map(|path| path.to_string()).collect();
+
+        match tree.filesystems {
+            Node::Branch(p, children) => {
+                let children: Vec<String> = children.iter().map(|n| n.path()).collect();
+                assert_eq!(expected_children, children)
+            },
+            Node::Leaf(_) => panic!("Fail")
+        }
     }
 }
