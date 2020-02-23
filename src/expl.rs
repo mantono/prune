@@ -86,6 +86,7 @@ fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
 }
 
 fn is_valid_target(path: &PathBuf) -> bool {
+    let p: &str = path.canonicalize().unwrap().to_str().unwrap();
     if !is_symlink(path) {
         let metadata: Metadata = path.metadata().expect("Unable to retrieve metadata:");
         metadata.is_file() || metadata.is_dir()
