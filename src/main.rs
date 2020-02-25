@@ -6,7 +6,7 @@ mod cfg;
 mod expl;
 mod find;
 mod logger;
-mod prefix_tree;
+mod trie;
 
 use crate::cfg::Config;
 use crate::expl::FileExplorer;
