@@ -3,6 +3,9 @@ use std::net::Shutdown::Read;
 use std::str::FromStr;
 use std::iter::empty;
 use std::collections::VecDeque;
+use std::ops::Deref;
+use std::borrow::BorrowMut;
+use regex::Regex;
 
 struct Trie {
     filesystems: Node,
@@ -21,14 +24,15 @@ enum Relationship {
     Descendant
 }
 
-const DIR_ENTRY_PATTERN: &str = r"/[^/\0]*";
+fn parts_from_path(path: &str) -> VecDeque<&str> {
+    let dir_entry_pattern = Regex::new("/[^/\0]*").unwrap();
+    dir_entry_pattern.find_iter(path).map(|m| m.as_str()).collect()
+}
 
 impl Node {
     fn add_str(&mut self, path: &str) {
-        let parts: VecDeque<&str> = path
-            .matches(DIR_ENTRY_PATTERN)
-            .collect();
-
+        let parts: VecDeque<&str> = parts_from_path(path);
+        dbg!(&parts);
 //        let start: Option<&str> = path
 //            .split_terminator("/")
 //            .collect::<Vec<&str>>()
@@ -38,7 +42,7 @@ impl Node {
     }
 
     fn add_parts(&mut self, mut parts: VecDeque<&str>) {
-        dbg!(parts);
+        dbg!(&parts);
         let next: &str = match parts.pop_front() {
             Some(s) => s,
             None => return
@@ -47,13 +51,25 @@ impl Node {
         if self.has_path(next) {
             self.add_parts(parts)
         } else if self.has_child(next) {
-            let mut next_entry: &Node = self.children().iter().find(|n| n.has_path(next)).unwrap();
-            next_entry.add_parts(parts)
+            self.insert_into(next, parts).unwrap();
+            //self.children().iter().find(|n| n.has_path(next)).unwrap().add_parts(parts);
         } else {
             let mut new_node = Node::Branch(String::from(next), vec![]);
             new_node.add_parts(parts);
             self.children().push(new_node);
         }
+    }
+
+    fn insert_into(&mut self, child: &str, mut parts: VecDeque<&str>) -> Result<(), &str> {
+        let child: Option<&mut Node> = self.get_child(child);
+        match child {
+            Some(c) => Ok(c.add_parts(parts)),
+            None => Err("Unable to fild child with correct path")
+        }
+    }
+
+    fn get_child(&mut self, child: &str) -> Option<&mut Node> {
+        self.children().iter_mut().find(|n| n.has_path(child))
     }
 
     fn path(&self) -> Option<String> {
@@ -63,14 +79,14 @@ impl Node {
         }
     }
 
-    fn children(&self) -> &Vec<Node> {
+    fn children(&mut self) -> &mut Vec<Node> {
         match self {
             Node::Root(children) => children,
             Node::Branch(_, children) => children
         }
     }
 
-    fn has_child(&self, entry: &str) -> bool {
+    fn has_child(&mut self, entry: &str) -> bool {
         self.children().iter().any(|n| n.path() == Some(entry.to_string()))
     }
 
@@ -140,6 +156,7 @@ impl Trie {
 
         let mut root: Node = Node::Root(vec![]);
         for fs in paths {
+            dbg!(fs);
             root.add_str(fs)
         }
 
@@ -193,7 +210,8 @@ fn sort_paths(paths: &mut Vec<&str>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::trie::{Trie, Node};
+    use crate::trie::{Trie, Node, parts_from_path};
+    use std::collections::VecDeque;
 
     #[test]
     fn test_sort_path() {
@@ -232,6 +250,28 @@ mod tests {
         ];
 
         assert_eq!(expected, paths);
+    }
+
+    #[test]
+    fn test_parts_from_path_with_just_root() {
+        let mut parts: VecDeque<&str> = parts_from_path("/");
+        assert_eq!(1, parts.len());
+        assert_eq!(Some("/"), parts.pop_front());
+    }
+
+    #[test]
+    fn test_parts_from_path_with_just_one_dir_after_root() {
+        let mut parts: VecDeque<&str> = parts_from_path("/proc");
+        assert_eq!(1, parts.len());
+        assert_eq!(Some("/proc"), parts.pop_front());
+    }
+
+    #[test]
+    fn test_parts_from_path_with_several_dirs() {
+        let mut parts: VecDeque<&str> = parts_from_path("/sys/fs/cgroup/memory");
+        assert_eq!(4, parts.len());
+        let expected: VecDeque<&str> = VecDeque::from(vec!["/syss", "/fs", "/cgroup", "/memory"]);
+        assert_eq!(expected, parts);
     }
 
     ///
