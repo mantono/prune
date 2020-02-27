@@ -8,16 +8,17 @@ pub struct FileExplorer {
     dirs: VecDeque<PathBuf>,
     origin: PathBuf,
     max_depth: u32,
-    fs_filter: Option<Vec<PathBuf>>,
+    fs_filter: Vec<PathBuf>,
 }
 
 impl FileExplorer {
     pub fn for_path(
         path: &PathBuf,
         max_depth: u32,
-        fs_filter: Option<Vec<PathBuf>>,
+        fs_filter: Vec<PathBuf>,
     ) -> FileExplorer {
         let (files, dirs) = FileExplorer::load(path).expect("Unable to load path");
+        let dirs: Vec<PathBuf> = filter_boundaries(dirs, &fs_filter);
         let dirs = if max_depth > 0 {
             VecDeque::from(dirs)
         } else {
@@ -49,6 +50,7 @@ impl FileExplorer {
                 self.files.extend(files);
                 let current_depth: u32 = self.depth(path) as u32;
                 if current_depth < self.max_depth {
+                    let dirs: Vec<PathBuf> = filter_boundaries(dirs, &self.fs_filter);
                     self.dirs.extend(dirs);
                 }
             }
@@ -61,6 +63,10 @@ impl FileExplorer {
         let comps1 = dir.canonicalize().unwrap().components().count();
         comps1 - comps0
     }
+}
+
+fn filter_boundaries(dirs: Vec<PathBuf>, boundaries: &Vec<PathBuf>) -> Vec<PathBuf> {
+    dirs.iter().filter(|d| !boundaries.contains(d)).map(|d| d.to_path_buf()).collect()
 }
 
 impl Iterator for FileExplorer {
@@ -86,7 +92,6 @@ fn read_dirs(path: &PathBuf) -> Result<ReadDir, std::io::Error> {
 }
 
 fn is_valid_target(path: &PathBuf) -> bool {
-    let p: &str = path.canonicalize().unwrap().to_str().unwrap();
     if !is_symlink(path) {
         let metadata: Metadata = path.metadata().expect("Unable to retrieve metadata:");
         metadata.is_file() || metadata.is_dir()
@@ -115,14 +120,14 @@ mod tests {
     #[test]
     fn test_depth_only_root_dir() {
         let dir = PathBuf::from(TEST_DIR);
-        let found = FileExplorer::for_path(&dir, 0, None).count();
+        let found = FileExplorer::for_path(&dir, 0, vec![]).count();
         assert_eq!(1, found);
     }
 
     #[test]
     fn test_depth_one() {
         let dir = PathBuf::from(TEST_DIR);
-        let found = FileExplorer::for_path(&dir, 1, None).count();
+        let found = FileExplorer::for_path(&dir, 1, vec![]).count();
         assert_eq!(3, found);
     }
 }
