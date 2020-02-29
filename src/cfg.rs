@@ -48,7 +48,7 @@ impl Config {
             paths.iter()
                 .map(|p| PathBuf::from(p).canonicalize().unwrap())
                 .map(|p: PathBuf| {
-                    dbg!((p.clone(), fs_boundaries(&fs, &p)))
+                    (p.clone(), fs_boundaries(&fs, &p))
                 })
                 .for_each(|p| {
                     boundaries.insert(p.0, p.1);
@@ -62,7 +62,7 @@ impl Config {
             limit,
             pattern,
             verbosity_level,
-            fs_boundaries: dbg!(boundaries)
+            fs_boundaries: boundaries
         }
     }
 }
