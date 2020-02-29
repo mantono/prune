@@ -1,5 +1,11 @@
 name: Build & Test
-on: [push]
+on:
+  push:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'src'
+      - 'tests'
 jobs:
   build:
     runs-on: ${{ matrix.os }}
