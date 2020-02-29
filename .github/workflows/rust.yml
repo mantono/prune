@@ -21,19 +21,11 @@ jobs:
       id: cache-cargo-fetch
       with:
         key: ${{ runner.os }}-cargo-fetch-${{ hashFiles('Cargo.lock') }}
-        path: target/release/deps
+        path: target/release
         restore-keys: ${{ runner.os }}-cargo-fetch
     - name: Fetch Dependencies
       if: steps.cache-cargo-fetch.outputs.cache-hit != 'true'
       run: cargo fetch
-    - uses: actions/cache@v1
-      id: cache-cargo-build
-      with:
-        key: ${{ runner.os }}-cargo-build-${{ hashFiles('src') }}
-        path:
-          - 'target/release/incremental'
-          - 'target/release/build'
-        restore-keys: ${{ runner.os }}-cargo-build
     - name: Build
       run: cargo build --release --all-features
     - name: Run tests
