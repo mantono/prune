@@ -27,7 +27,7 @@ jobs:
       if: steps.cache-cargo.outputs.cache-hit != 'true'
       run: cargo fetch
     - name: Build
-      run: cargo build --release
+      run: cargo build --release --all-features
     - name: Run tests
       run: cargo test
 
