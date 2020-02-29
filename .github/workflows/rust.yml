@@ -6,6 +6,7 @@ on:
       - '**/Cargo.lock'
       - 'src'
       - 'tests'
+      - '.github/workflows/rust.yml'
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -20,7 +21,7 @@ jobs:
       id: cache-cargo
       with:
         key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
-        path: target/release/deps
+        path: target/release
         restore-keys: ${{ runner.os }}-cargo
     - name: Fetch Dependencies
       if: steps.cache-cargo.outputs.cache-hit != 'true'
