@@ -18,6 +18,7 @@ use std::path::PathBuf;
 fn main() {
     let cfg: Config = Config::from_args(args::args());
     setup_logging(cfg.verbosity_level);
+    log::debug!("File system boundaries {:?}", &cfg.fs_boundaries);
 
     let files: Vec<PathBuf> = cfg
         .paths
