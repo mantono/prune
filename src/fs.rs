@@ -3,7 +3,7 @@ use std::path::PathBuf;
 pub fn fs_boundaries(filesystems: &Vec<PathBuf>, path: &PathBuf) -> Vec<PathBuf> {
     filesystems.clone()
         .iter()
-        .filter(|fs| fs.starts_with(path))
+        .filter(|fs| fs.starts_with(path) && *fs != path)
         .map(|fs| PathBuf::from(fs))
         .collect()
 }
@@ -75,6 +75,45 @@ mod tests {
         let path = PathBuf::from("/sys/kernel");
         let boundaries: Vec<PathBuf> = fs_boundaries(&filesystems, &path);
         let expected = vec![PathBuf::from("/sys/kernel/security")];
+        assert_eq!(expected, boundaries)
+    }
+
+    #[test]
+    fn test_fs_boundaries_do_not_include_file_system_in_boundaries() {
+        let filesystems: Vec<PathBuf> = vec![
+            "/proc",
+            "/sys",
+            "/sys/firmware/efi/efivars",
+            "/dev",
+            "/run",
+            "/",
+            "/tmp",
+            "/home",
+            "/boot",
+            "/sys/kernel/security",
+            "/sys/fs/cgroup/memory",
+            "/sys/fs/cgroup/cpu,cpuacct",
+            "/sys/fs/cgroup/freezer",
+        ].iter().map(|p| PathBuf::from(p)).collect();
+
+        let path = PathBuf::from("/");
+        let boundaries: Vec<PathBuf> = fs_boundaries(&filesystems, &path);
+
+        let expected: Vec<PathBuf> = vec![
+            "/proc",
+            "/sys",
+            "/sys/firmware/efi/efivars",
+            "/dev",
+            "/run",
+            "/tmp",
+            "/home",
+            "/boot",
+            "/sys/kernel/security",
+            "/sys/fs/cgroup/memory",
+            "/sys/fs/cgroup/cpu,cpuacct",
+            "/sys/fs/cgroup/freezer",
+        ].iter().map(|p| PathBuf::from(p)).collect();
+
         assert_eq!(expected, boundaries)
     }
 
