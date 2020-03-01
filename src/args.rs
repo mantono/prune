@@ -114,8 +114,7 @@ impl Size {
     pub fn from_arg(arg: &str) -> Size {
         let char: String = arg
             .chars()
-            .filter(|c| c.is_alphabetic())
-            .next()
+            .find(|c| c.is_alphabetic())
             .unwrap_or('b')
             .to_lowercase()
             .to_string();
