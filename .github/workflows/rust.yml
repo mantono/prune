@@ -21,7 +21,7 @@ jobs:
       if: contains(runner.os, 'Windows')
       run: |
         get-content Cargo.toml | %{$_ -replace "prn","prune"} > windows.toml
-        mv -f windows.toml Cargo.toml
+        mv -Force windows.toml Cargo.toml
     - uses: actions/cache@v1
       id: cache-cargo-fetch
       with:
