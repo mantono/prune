@@ -19,7 +19,7 @@ jobs:
     - uses: actions/checkout@v1
     - name: Change Project Name
       if: contains(runner.os, 'Windows')
-      run: get-content Cargo.toml | %{$_ -replace "prn","prune"} > Cargo.toml
+      run: get-content Cargo.toml | %{$_ -replace "prn","prune"} | set-content Cargo.toml
     - uses: actions/cache@v1
       id: cache-cargo-fetch
       with:
