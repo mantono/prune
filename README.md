@@ -1,6 +1,8 @@
 # prune
 Find large files on your disk
 
+![Build & Test](https://github.com/mantono/prune/workflows/Build%20&%20Test/badge.svg)
+
 ## Usage
 ```
 USAGE:
@@ -26,6 +28,9 @@ OPTIONS:
     -s, --size <size>
             Only show files which exceeds this file size. For example 400 is equivalent of 400 bytes, 20m is equivalent
             of 20 megabytes and 5g is equivalent of 5 gigabytes. [default: 100m]
+    -v, --verbosity <verbosity>    
+            Set the verbosity level, from 0 (least amount of output) to 5 (most verbose). Note that logging level
+            configured via RUST_LOG overrides this setting. [default: 1]
 
 ARGS:
     <path>...    
