@@ -4,8 +4,8 @@ on:
     paths:
       - '**/Cargo.toml'
       - '**/Cargo.lock'
-      - 'src'
-      - 'tests'
+      - 'src/**'
+      - 'tests/**'
       - '.github/workflows/rust.yml'
 jobs:
   build:
@@ -17,6 +17,11 @@ jobs:
       fail-fast: false
     steps:
     - uses: actions/checkout@v1
+    - name: Change Project Name
+      if: contains(runner.os, 'Windows')
+      run: |
+        get-content Cargo.toml | %{$_ -replace "prn","prune"} > windows.toml
+        mv -Force windows.toml Cargo.toml
     - uses: actions/cache@v1
       id: cache-cargo-fetch
       with:

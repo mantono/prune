@@ -48,6 +48,7 @@ mod tests {
         assert_eq!(1, result.0);
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
