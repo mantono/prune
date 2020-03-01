@@ -1,6 +1,8 @@
 # prune
 Find large files on your disk
 
+![Build & Test](https://github.com/mantono/prune/workflows/Build%20&%20Test/badge.svg)
+
 ## Usage
 ```
 USAGE:
