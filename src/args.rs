@@ -131,19 +131,19 @@ impl Size {
     }
 
     pub fn as_bytes(&self) -> u64 {
-        match self {
-            &Byte(n) => n,
-            &Kilobyte(n) => 1024 * n,
-            &Megabyte(n) => 1024 * 1024 * n,
-            &Gigabyte(n) => 1024 * 1024 * 1024 * n,
-            &Terabyte(n) => 1024 * 1024 * 1024 * 1024 * n,
+        match *self {
+            Byte(n) => n,
+            Kilobyte(n) => 1024 * n,
+            Megabyte(n) => 1024 * 1024 * n,
+            Gigabyte(n) => 1024 * 1024 * 1024 * n,
+            Terabyte(n) => 1024 * 1024 * 1024 * 1024 * n,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::args::{validate_size, number_from_size};
+    use crate::args::{number_from_size, validate_size};
 
     #[test]
     fn validate_size_bytes() {

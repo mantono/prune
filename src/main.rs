@@ -1,18 +1,18 @@
 #[macro_use]
 extern crate clap;
 extern crate humansize;
-mod cfg;
-mod find;
 mod args;
+mod cfg;
 mod expl;
+mod find;
 mod logger;
 
-use humansize::{FileSize, file_size_opts as options};
-use std::path::PathBuf;
-use crate::find::{summarize, filter_size, filter_name};
 use crate::cfg::Config;
 use crate::expl::FileExplorer;
+use crate::find::{filter_name, filter_size, summarize};
 use crate::logger::setup_logging;
+use humansize::{file_size_opts as options, FileSize};
+use std::path::PathBuf;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
