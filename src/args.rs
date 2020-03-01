@@ -74,7 +74,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(verbosity)
         .get_matches();
 
-    return args;
+    args
 }
 
 use regex::Regex;
