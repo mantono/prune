@@ -18,8 +18,10 @@ fn main() {
     let cfg: Config = Config::from_args(args::args());
     setup_logging(cfg.verbosity_level);
 
-    let files: Vec<PathBuf> = cfg.paths.iter()
-        .map(|p| PathBuf::from(p))
+    let files: Vec<PathBuf> = cfg
+        .paths
+        .iter()
+        .map(PathBuf::from)
         .flat_map(|path: PathBuf| FileExplorer::for_path(&path, cfg.max_depth))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
@@ -35,6 +37,11 @@ fn main() {
 
 fn print(file: &PathBuf) {
     let canon: PathBuf = file.canonicalize().expect("Unable to get canonical path");
-    let size = file.metadata().unwrap().len().file_size(options::CONVENTIONAL).unwrap();
+    let size = file
+        .metadata()
+        .unwrap()
+        .len()
+        .file_size(options::CONVENTIONAL)
+        .unwrap();
     println!("{}, {:?}", size, canon);
 }
