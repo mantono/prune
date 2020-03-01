@@ -89,7 +89,7 @@ fn validate_size(size: String) -> Result<(), String> {
     }
 }
 
-fn number_from_size(size: &String) -> Result<u64, String> {
+fn number_from_size(size: &str) -> Result<u64, String> {
     let regex = Regex::new(r"^\d+").unwrap();
     let match_str: &str = match regex.find(&size) {
         Some(m) => m.as_str(),
