@@ -4,8 +4,8 @@ on:
     paths:
       - '**/Cargo.toml'
       - '**/Cargo.lock'
-      - 'src'
-      - 'tests'
+      - 'src/**'
+      - 'tests/**'
       - '.github/workflows/rust.yml'
 jobs:
   build:
