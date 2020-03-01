@@ -18,7 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Change Project Name
-      if: runner.os == 'windows-latest'
+      if: contains(runner.os, 'Windows')
       run: get-content Cargo.toml | %{$_ -replace "prn","prune"}
     - uses: actions/cache@v1
       id: cache-cargo-fetch
