@@ -23,11 +23,10 @@ fn main() {
     let files: Vec<PathBuf> = cfg
         .paths
         .iter()
-        .map(|p| PathBuf::from(p))
-        .flat_map(|path: PathBuf| {
+        .flat_map(|path: &PathBuf| {
             let empty: Vec<PathBuf> = Vec::with_capacity(0);
-            let fs_boundary: Vec<PathBuf> = cfg.fs_boundaries.get(&path).unwrap_or(&empty).clone();
-            FileExplorer::for_path(&path, cfg.max_depth, fs_boundary)
+            let fs_boundary: Vec<PathBuf> = cfg.fs_boundaries.get(path).unwrap_or(&empty).clone();
+            FileExplorer::for_path(path, cfg.max_depth, fs_boundary)
         })
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))

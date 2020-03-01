@@ -1,13 +1,13 @@
 use crate::args::Size;
+use crate::fs::{filesystems, fs_boundaries};
 use clap::ArgMatches;
 use regex::Regex;
-use std::str::FromStr;
-use crate::fs::{filesystems, fs_boundaries};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 pub struct Config {
-    pub paths: Vec<String>,
+    pub paths: Vec<PathBuf>,
     pub min_size: u64,
     pub max_depth: u32,
     pub limit: usize,
@@ -30,10 +30,10 @@ impl Config {
             .unwrap_or(&std::u64::MAX.to_string())
             .parse()
             .unwrap();
-        let paths: Vec<String> = args
+        let paths: Vec<PathBuf> = args
             .values_of("path")
             .unwrap()
-            .map(|v| v.to_string())
+            .map(|v| PathBuf::from(v).canonicalize().unwrap())
             .collect();
         let pattern: Option<Regex> = args
             .value_of("pattern")
@@ -45,11 +45,9 @@ impl Config {
 
         if only_local_fs {
             let fs: Vec<PathBuf> = filesystems().expect("Unable to locate mounted filesystems");
-            paths.iter()
-                .map(|p| PathBuf::from(p).canonicalize().unwrap())
-                .map(|p: PathBuf| {
-                    (p.clone(), fs_boundaries(&fs, &p))
-                })
+            paths
+                .iter()
+                .map(|p: &PathBuf| (p.clone(), fs_boundaries(&fs, &p)))
                 .for_each(|p| {
                     boundaries.insert(p.0, p.1);
                 });
@@ -62,7 +60,7 @@ impl Config {
             limit,
             pattern,
             verbosity_level,
-            fs_boundaries: boundaries
+            fs_boundaries: boundaries,
         }
     }
 }
