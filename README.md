@@ -9,6 +9,10 @@ USAGE:
     prn [OPTIONS] [path]...
 
 FLAGS:
+    -x, --filesystem
+            Only search for files in the same filesystem for the given path(s), or the current file system if no path is
+            given.
+
     -h, --help       
             Prints help information
 
