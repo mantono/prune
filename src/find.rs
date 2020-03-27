@@ -3,9 +3,7 @@ use std::path::PathBuf;
 
 pub fn summarize(files: Vec<PathBuf>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
-    let size: u64 = files.iter()
-        .map(|f| f.metadata().unwrap().len())
-        .sum();
+    let size: u64 = files.iter().map(|f| f.metadata().unwrap().len()).sum();
 
     (found, size)
 }
@@ -23,7 +21,7 @@ pub fn filter_size(file: &PathBuf, min_size: u64) -> bool {
 pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
     match pattern {
         None => true,
-        Some(regex) =>  {
+        Some(regex) => {
             let file_name: &str = path.file_name().unwrap().to_str().unwrap();
             regex.is_match(file_name)
         }
@@ -36,6 +34,7 @@ mod tests {
     use crate::find::{summarize, filter_size, filter_name};
     use crate::expl::FileExplorer;
     use regex::Regex;
+    use std::path::PathBuf;
     use std::str::FromStr;
 
     const TEST_DIR: &str = "test_dirs";
@@ -70,7 +69,19 @@ mod tests {
             .collect();
 
         assert_eq!(2, files.len());
-        assert_eq!("file0", files.first().unwrap().file_name().unwrap().to_str().unwrap());
-        assert_eq!("file1", files.last().unwrap().file_name().unwrap().to_str().unwrap());
+        assert_eq!(
+            "file0",
+            files
+                .first()
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+        );
+        assert_eq!(
+            "file1",
+            files.last().unwrap().file_name().unwrap().to_str().unwrap()
+        );
     }
 }
