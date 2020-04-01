@@ -31,17 +31,17 @@ pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::find::{filter_name, filter_size, summarize};
+    use fwalker::Walker;
     use regex::Regex;
     use std::path::PathBuf;
     use std::str::FromStr;
-    use walker::FileWalker;
 
     const TEST_DIR: &str = "test_dirs";
 
     #[test]
     fn test_stop_at_one_found_file() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = FileWalker::from(dir).unwrap().take(1).collect();
+        let files: Vec<PathBuf> = Walker::from(dir).unwrap().take(1).collect();
         let result: (u64, u64) = summarize(files);
         assert_eq!(1, result.0);
     }
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = FileWalker::from(dir)
+        let files: Vec<PathBuf> = Walker::from(dir)
             .unwrap()
             .filter(|f| filter_size(f, 100))
             .collect();
@@ -64,7 +64,7 @@ mod tests {
     fn test_filter_by_file_pattern() {
         let dir = PathBuf::from(TEST_DIR);
         let pattern: Option<Regex> = Some(Regex::from_str("file[01]$").unwrap());
-        let files: Vec<PathBuf> = FileWalker::from(dir)
+        let files: Vec<PathBuf> = Walker::from(dir)
             .unwrap()
             .filter(|f| filter_name(f, &pattern))
             .collect();
