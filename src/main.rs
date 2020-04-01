@@ -3,14 +3,13 @@ extern crate clap;
 extern crate humansize;
 mod args;
 mod cfg;
-mod expl;
 mod find;
 mod logger;
 
 use crate::cfg::Config;
-use crate::expl::FileExplorer;
 use crate::find::{filter_name, filter_size, summarize};
 use crate::logger::setup_logging;
+use fwalker::Walker;
 use humansize::{file_size_opts as options, FileSize};
 use std::path::PathBuf;
 
@@ -22,7 +21,7 @@ fn main() {
         .paths
         .iter()
         .map(PathBuf::from)
-        .flat_map(|path: PathBuf| FileExplorer::for_path(&path, cfg.max_depth))
+        .flat_map(|path: PathBuf| Walker::from(path).unwrap().max_depth(cfg.max_depth))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .take(cfg.limit)

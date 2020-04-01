@@ -9,7 +9,7 @@ pub struct Config {
     pub max_depth: u32,
     pub limit: usize,
     pub pattern: Option<Regex>,
-    pub verbosity_level: u8
+    pub verbosity_level: u8,
 }
 
 impl Config {
@@ -42,7 +42,7 @@ impl Config {
             max_depth,
             limit,
             pattern,
-            verbosity_level
+            verbosity_level,
         }
     }
 }

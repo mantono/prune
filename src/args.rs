@@ -93,11 +93,11 @@ fn number_from_size(size: &str) -> Result<u64, String> {
     let regex = Regex::new(r"^\d+").unwrap();
     let match_str: &str = match regex.find(&size) {
         Some(m) => m.as_str(),
-        None => return Err(String::from("No match for size"))
+        None => return Err(String::from("No match for size")),
     };
     let number: u64 = match match_str.parse() {
         Ok(n) => n,
-        Err(_) => return Err(String::from("Unable to parse int"))
+        Err(_) => return Err(String::from("Unable to parse int")),
     };
     Ok(number)
 }

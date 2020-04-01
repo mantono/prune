@@ -1,12 +1,12 @@
-use log::{LevelFilter, Level, Record};
 use env_logger::fmt::{Color, Formatter};
-use std::io::Write;
+use log::{Level, LevelFilter, Record};
 use std::io;
+use std::io::Write;
 
 pub fn setup_logging(verbosity_level: u8) {
     match std::env::var("RUST_LOG") {
         Ok(_) => log_by_env_var(),
-        Err(_) => log_by_cmd_arg(verbosity_level)
+        Err(_) => log_by_cmd_arg(verbosity_level),
     }
 }
 
@@ -24,7 +24,7 @@ fn log_by_cmd_arg(verbosity_level: u8) {
         3 => LevelFilter::Info,
         4 => LevelFilter::Debug,
         5 => LevelFilter::Trace,
-        _ => panic!("Invalid verbosity level: {}", verbosity_level)
+        _ => panic!("Invalid verbosity level: {}", verbosity_level),
     };
 
     env_logger::builder()
@@ -33,11 +33,9 @@ fn log_by_cmd_arg(verbosity_level: u8) {
         .init()
 }
 
-fn formatter(buf: &mut Formatter, record: &Record) -> io::Result<()>  {
+fn formatter(buf: &mut Formatter, record: &Record) -> io::Result<()> {
     match record.level() {
-        Level::Info => {
-            writeln!(buf, "{}", record.args())
-        },
+        Level::Info => writeln!(buf, "{}", record.args()),
         Level::Warn => {
             let mut style = buf.style();
             style.set_color(Color::Yellow);
@@ -47,7 +45,7 @@ fn formatter(buf: &mut Formatter, record: &Record) -> io::Result<()>  {
             let mut style = buf.style();
             style.set_color(Color::Red);
             writeln!(buf, "{}: {}", style.value(record.level()), record.args())
-        },
-        _ => writeln!(buf, "{}: {}", record.level(), record.args())
+        }
+        _ => writeln!(buf, "{}: {}", record.level(), record.args()),
     }
 }
