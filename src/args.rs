@@ -82,7 +82,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(filesystem)
         .get_matches();
 
-    return args;
+    args
 }
 
 use regex::Regex;
@@ -97,15 +97,15 @@ fn validate_size(size: String) -> Result<(), String> {
     }
 }
 
-fn number_from_size(size: &String) -> Result<u64, String> {
+fn number_from_size(size: &str) -> Result<u64, String> {
     let regex = Regex::new(r"^\d+").unwrap();
     let match_str: &str = match regex.find(&size) {
         Some(m) => m.as_str(),
-        None => return Err(String::from("No match for size"))
+        None => return Err(String::from("No match for size")),
     };
     let number: u64 = match match_str.parse() {
         Ok(n) => n,
-        Err(_) => return Err(String::from("Unable to parse int"))
+        Err(_) => return Err(String::from("Unable to parse int")),
     };
     Ok(number)
 }
@@ -122,8 +122,7 @@ impl Size {
     pub fn from_arg(arg: &str) -> Size {
         let char: String = arg
             .chars()
-            .filter(|c| c.is_alphabetic())
-            .next()
+            .find(|c| c.is_alphabetic())
             .unwrap_or('b')
             .to_lowercase()
             .to_string();
@@ -140,19 +139,19 @@ impl Size {
     }
 
     pub fn as_bytes(&self) -> u64 {
-        match self {
-            &Byte(n) => n,
-            &Kilobyte(n) => 1024 * n,
-            &Megabyte(n) => 1024 * 1024 * n,
-            &Gigabyte(n) => 1024 * 1024 * 1024 * n,
-            &Terabyte(n) => 1024 * 1024 * 1024 * 1024 * n,
+        match *self {
+            Byte(n) => n,
+            Kilobyte(n) => 1024 * n,
+            Megabyte(n) => 1024 * 1024 * n,
+            Gigabyte(n) => 1024 * 1024 * 1024 * n,
+            Terabyte(n) => 1024 * 1024 * 1024 * 1024 * n,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::args::{validate_size, number_from_size};
+    use crate::args::{number_from_size, validate_size};
 
     #[test]
     fn validate_size_bytes() {

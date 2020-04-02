@@ -3,31 +3,25 @@ extern crate clap;
 extern crate humansize;
 mod args;
 mod cfg;
-mod expl;
 mod find;
 mod logger;
-mod fs;
 
 use crate::cfg::Config;
-use crate::expl::FileExplorer;
 use crate::find::{filter_name, filter_size, summarize};
 use crate::logger::setup_logging;
+use fwalker::Walker;
 use humansize::{file_size_opts as options, FileSize};
 use std::path::PathBuf;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
     setup_logging(cfg.verbosity_level);
-    log::debug!("File system boundaries {:?}", &cfg.fs_boundaries);
 
     let files: Vec<PathBuf> = cfg
         .paths
         .iter()
-        .flat_map(|path: &PathBuf| {
-            let empty: Vec<PathBuf> = Vec::with_capacity(0);
-            let fs_boundary: Vec<PathBuf> = cfg.fs_boundaries.get(path).unwrap_or(&empty).clone();
-            FileExplorer::for_path(path, cfg.max_depth, fs_boundary)
-        })
+        .map(PathBuf::from)
+        .flat_map(|path: PathBuf| create_walker(&cfg, &path))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .take(cfg.limit)
@@ -38,6 +32,20 @@ fn main() {
 
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
     println!("Found {} files with a total size of {}", found, human_size);
+}
+
+fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
+    let walker = Walker::from(path)
+        .expect("Unable to crate Walker from Path")
+        .max_depth(cfg.max_depth);
+
+    if cfg.only_local_fs {
+        walker
+            .only_local_fs()
+            .expect("Unable to enable only local fs")
+    } else {
+        walker
+    }
 }
 
 fn print(file: &PathBuf) {
