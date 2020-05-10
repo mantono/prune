@@ -12,6 +12,7 @@ use crate::logger::setup_logging;
 use fwalker::Walker;
 use humansize::{file_size_opts as options, FileSize};
 use std::path::PathBuf;
+use std::process;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
@@ -21,6 +22,7 @@ fn main() {
         .paths
         .iter()
         .map(PathBuf::from)
+        .inspect(check_path)
         .flat_map(|path: PathBuf| Walker::from(path).unwrap().max_depth(cfg.max_depth))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
@@ -32,6 +34,17 @@ fn main() {
 
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
     println!("Found {} files with a total size of {}", found, human_size);
+}
+
+fn check_path(path: &PathBuf) {
+    if !path.exists() {
+        log::error!("Path does not exist: {:?}", path);
+        process::exit(1);
+    }
+    if !path.is_dir() {
+        log::error!("Path is not a directory: {:?}", path);
+        process::exit(2);
+    }
 }
 
 fn print(file: &PathBuf) {
