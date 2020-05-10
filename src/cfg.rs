@@ -10,6 +10,7 @@ pub struct Config {
     pub limit: usize,
     pub pattern: Option<Regex>,
     pub verbosity_level: u8,
+    pub print_dbg: bool
 }
 
 impl Config {
@@ -35,6 +36,7 @@ impl Config {
             .value_of("pattern")
             .map(|p| Regex::from_str(p).expect("Unable to parse regex"));
         let verbosity_level: u8 = args.value_of("verbosity").unwrap().parse::<u8>().unwrap();
+        let print_dbg: bool = args.is_present("debug");
 
         Config {
             paths,
@@ -43,6 +45,7 @@ impl Config {
             limit,
             pattern,
             verbosity_level,
+            print_dbg
         }
     }
 }

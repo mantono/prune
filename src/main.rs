@@ -3,6 +3,7 @@ extern crate clap;
 extern crate humansize;
 mod args;
 mod cfg;
+mod dbg;
 mod find;
 mod logger;
 
@@ -13,10 +14,16 @@ use fwalker::Walker;
 use humansize::{file_size_opts as options, FileSize};
 use std::path::PathBuf;
 use std::process;
+use crate::dbg::dbg_info;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
     setup_logging(cfg.verbosity_level);
+
+    if cfg.print_dbg {
+        println!("{}", dbg_info());
+        process::exit(0);
+    }
 
     let files: Vec<PathBuf> = cfg
         .paths
