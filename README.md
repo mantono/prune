@@ -6,9 +6,12 @@ Find large files on your disk
 ## Usage
 ```
 USAGE:
-    prn [OPTIONS] [path]...
+    prn [FLAGS] [OPTIONS] [path]...
 
 FLAGS:
+    -D, --debug
+            Print debug information about current build for binary, useful for when an issue is encountered and reported
+
     -h, --help       
             Prints help information
 
