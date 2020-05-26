@@ -29,9 +29,8 @@ fn main() {
         .paths
         .iter()
         .map(PathBuf::from)
-        .flat_map(|path: PathBuf| create_walker(&cfg, &path))
         .inspect(check_path)
-        .flat_map(|path: PathBuf| Walker::from(path).unwrap().max_depth(cfg.max_depth))
+        .flat_map(|path: PathBuf| create_walker(&cfg, &path))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .take(cfg.limit)
