@@ -12,6 +12,7 @@ pub struct Config {
     pub pattern: Option<Regex>,
     pub verbosity_level: u8,
     pub only_local_fs: bool,
+    pub print_dbg: bool
 }
 
 impl Config {
@@ -38,6 +39,7 @@ impl Config {
             .map(|p| Regex::from_str(p).expect("Unable to parse regex"));
         let verbosity_level: u8 = args.value_of("verbosity").unwrap().parse::<u8>().unwrap();
         let only_local_fs: bool = args.is_present("filesystem");
+        let print_dbg: bool = args.is_present("debug");
 
         Config {
             paths,
@@ -47,6 +49,7 @@ impl Config {
             pattern,
             verbosity_level,
             only_local_fs,
+            print_dbg
         }
     }
 }

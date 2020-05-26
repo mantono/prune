@@ -26,13 +26,13 @@ jobs:
       id: cache-cargo-fetch
       with:
         key: ${{ runner.os }}-cargo-fetch-${{ hashFiles('Cargo.lock') }}
-        path: target/release
+        path: target
         restore-keys: ${{ runner.os }}-cargo-fetch
     - name: Fetch Dependencies
       if: steps.cache-cargo-fetch.outputs.cache-hit != 'true'
       run: cargo fetch
     - name: Build
-      run: cargo build --release --all-features
+      run: cargo build --all-features
     - name: Run tests
       run: cargo test
 

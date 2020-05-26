@@ -69,6 +69,13 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Current filesystem only")
         .long_help("Only search for files in the same filesystem for the given path(s), or the current file system if no path is given.");
 
+    let debug = Arg::with_name("debug")
+        .takes_value(false)
+        .short("D")
+        .long("debug")
+        .help("Print debug information")
+        .long_help("Print debug information about current build for binary, useful for when an issue is encountered and reported");
+
     let args: ArgMatches = App::new(crate_name!())
         .about("Command line tool for finding large files")
         .version(crate_version!())
@@ -80,6 +87,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(limit)
         .arg(verbosity)
         .arg(filesystem)
+        .arg(debug)
         .get_matches();
 
     args

@@ -6,9 +6,12 @@ Find large files on your disk
 ## Usage
 ```
 USAGE:
-    prn [OPTIONS] [path]...
+    prn [FLAGS] [OPTIONS] [path]...
 
 FLAGS:
+    -D, --debug
+            Print debug information about current build for binary, useful for when an issue is encountered and reported
+
     -x, --filesystem
             Only search for files in the same filesystem for the given path(s), or the current file system if no path is
             given.
@@ -43,10 +46,14 @@ ARGS:
 ```
 
 #### Example
-The following command will look for all files being 300 megabyte or larger (`-s 300m`), in the current directory and up to five directory levels
-below (`-d 5`) stopping when ten files (`-l 10`) have been found.
+The following command will look for all files being 300 megabytes or larger (`-s 300m`), in the current directory and up to five directory levels
+below (`-d 5`) stopping when ten files (`-l 10`) have been found and only search for files on the local filesystem (`-x`).
 
-`prn -s 300m -d 5 -l 10`
+`prn -s 300m -d 5 -l 10 -x`
+
+This could also be written as
+
+`prn --size 300m --depth 5 --limit 10 --filesystem`
 
 Symlinks will never be followed, as this could potentially result in infinite loops when traversing through directories.
 
