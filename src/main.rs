@@ -39,13 +39,13 @@ fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
         .expect("Unable to crate Walker from Path")
         .max_depth(cfg.max_depth);
 
-    if cfg.only_local_fs {
-        walker
-            .only_local_fs()
-            .expect("Unable to enable only local fs")
+    let walker: Walker = if cfg.only_local_fs {
+        walker.only_local_fs()
     } else {
         walker
-    }
+    };
+    log::debug!("walker: {:?}", walker);
+    walker
 }
 
 fn print(file: &PathBuf) {
