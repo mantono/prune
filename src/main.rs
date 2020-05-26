@@ -30,7 +30,7 @@ fn main() {
         .iter()
         .map(PathBuf::from)
         .inspect(check_path)
-        .flat_map(|path: PathBuf| Walker::from(path).unwrap().max_depth(cfg.max_depth))
+        .flat_map(|path: PathBuf| create_walker(&cfg, &path))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .take(cfg.limit)
@@ -41,6 +41,20 @@ fn main() {
 
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
     println!("Found {} files with a total size of {}", found, human_size);
+}
+
+fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
+    let walker = Walker::from(path)
+        .expect("Unable to crate Walker from Path")
+        .max_depth(cfg.max_depth);
+
+    let walker: Walker = if cfg.only_local_fs {
+        walker.only_local_fs()
+    } else {
+        walker
+    };
+    log::debug!("walker: {:?}", walker);
+    walker
 }
 
 fn check_path(path: &PathBuf) {

@@ -62,6 +62,13 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Set verbosity level, 0 - 5")
         .long_help("Set the verbosity level, from 0 (least amount of output) to 5 (most verbose). Note that logging level configured via RUST_LOG overrides this setting.");
 
+    let filesystem = Arg::with_name("filesystem")
+        .takes_value(false)
+        .short("x")
+        .long("filesystem")
+        .help("Current filesystem only")
+        .long_help("Only search for files in the same filesystem for the given path(s), or the current file system if no path is given.");
+
     let debug = Arg::with_name("debug")
         .takes_value(false)
         .short("D")
@@ -79,6 +86,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(pattern)
         .arg(limit)
         .arg(verbosity)
+        .arg(filesystem)
         .arg(debug)
         .get_matches();
 

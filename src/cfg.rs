@@ -1,15 +1,17 @@
 use crate::args::Size;
 use clap::ArgMatches;
 use regex::Regex;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 pub struct Config {
-    pub paths: Vec<String>,
+    pub paths: Vec<PathBuf>,
     pub min_size: u64,
     pub max_depth: u32,
     pub limit: usize,
     pub pattern: Option<Regex>,
     pub verbosity_level: u8,
+    pub only_local_fs: bool,
     pub print_dbg: bool
 }
 
@@ -27,15 +29,16 @@ impl Config {
             .unwrap_or(&std::u64::MAX.to_string())
             .parse()
             .unwrap();
-        let paths: Vec<String> = args
+        let paths: Vec<PathBuf> = args
             .values_of("path")
             .unwrap()
-            .map(|v| v.to_string())
+            .map(|v| PathBuf::from(v).canonicalize().unwrap())
             .collect();
         let pattern: Option<Regex> = args
             .value_of("pattern")
             .map(|p| Regex::from_str(p).expect("Unable to parse regex"));
         let verbosity_level: u8 = args.value_of("verbosity").unwrap().parse::<u8>().unwrap();
+        let only_local_fs: bool = args.is_present("filesystem");
         let print_dbg: bool = args.is_present("debug");
 
         Config {
@@ -45,6 +48,7 @@ impl Config {
             limit,
             pattern,
             verbosity_level,
+            only_local_fs,
             print_dbg
         }
     }
