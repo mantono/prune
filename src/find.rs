@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 
 pub fn summarize(files: Vec<PathBuf>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
@@ -26,6 +27,35 @@ pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
             regex.is_match(file_name)
         }
     }
+}
+
+pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
+    let max_age: &Duration = match max_age {
+        None => return true,
+        Some(duration) => duration
+    };
+    let metadata = match path.metadata() {
+        Err(_) => return false,
+        Ok(m) => m
+    };
+    let mod_time: SystemTime = match metadata.modified() {
+        Ok(m) => m,
+        Err(_) => return false
+    };
+
+    let now = SystemTime::now();
+    if mod_time > now {
+        log::warn!("Found modification timestamp set in the future for {:?}: {:?}", path, mod_time);
+        return false
+    }
+    let elapsed_time: Duration = match now.duration_since(mod_time) {
+        Ok(duration) => duration,
+        Err(e) => {
+            log::error!("Cannot get duration since {:?} for {:?}: {}", mod_time, path, e);
+            return false
+        }
+    };
+    elapsed_time > *max_age
 }
 
 #[cfg(test)]

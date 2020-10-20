@@ -38,6 +38,23 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Filter files by regex pattern")
         .long_help("Only include and count files matching the regular expression.");
 
+    let duration_pattern = Regex::new(r"^\d+[smdwMy]?$").unwrap();
+    let mod_time = Arg::with_name("mod_time")
+        .takes_value(true)
+        .short("m")
+        .long("mod-time")
+        .required(false)
+        .validator(move |p: String| {
+            if duration_pattern.is_match(&p) {
+                Ok(())
+            } else {
+                Err(format!("Invalid duration: '{}'", p))
+            }
+        })
+        .value_name("duration")
+        .help("Filter based on mod time")
+        .long_help("Only show files which modification time is older than this. For example 180s for 180 seconds, 45d for 45 days or 3y for 3 years.");
+
     let limit = Arg::with_name("limit")
         .takes_value(true)
         .short("l")
@@ -84,6 +101,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(depth)
         .arg(size)
         .arg(pattern)
+        .arg(mod_time)
         .arg(limit)
         .arg(verbosity)
         .arg(filesystem)

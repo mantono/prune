@@ -8,7 +8,7 @@ mod find;
 mod logger;
 
 use crate::cfg::Config;
-use crate::find::{filter_name, filter_size, summarize};
+use crate::find::{filter_name, filter_size, summarize, filter_mod_time};
 use crate::logger::setup_logging;
 use fwalker::Walker;
 use humansize::{file_size_opts as options, FileSize};
@@ -19,6 +19,7 @@ use crate::dbg::dbg_info;
 fn main() {
     let cfg: Config = Config::from_args(args::args());
     setup_logging(cfg.verbosity_level);
+    log::debug!("Config: {:?}", cfg);
 
     if cfg.print_dbg {
         println!("{}", dbg_info());
@@ -33,6 +34,7 @@ fn main() {
         .flat_map(|path: PathBuf| create_walker(&cfg, &path))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
+        .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
         .take(cfg.limit)
         .inspect(|f| print(f))
         .collect();
