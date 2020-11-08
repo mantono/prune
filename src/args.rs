@@ -62,6 +62,13 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Limit how many files to list")
         .long_help("Only list the first N files found given by this limit. If no value is set for this option, the application will not stop until it has gone through all files in the directory and subdirectories.");
 
+    let dirs = Arg::with_name("dirs")
+        .takes_value(false)
+        .short("R")
+        .long("dirs")
+        .help("Search for directories")
+        .long_help("Search for directories instead of files");
+
     let verbosity = Arg::with_name("verbosity")
         .takes_value(true)
         .default_value("1")
@@ -103,6 +110,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(pattern)
         .arg(mod_time)
         .arg(limit)
+        .arg(dirs)
         .arg(verbosity)
         .arg(filesystem)
         .arg(debug)

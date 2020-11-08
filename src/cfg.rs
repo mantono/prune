@@ -13,9 +13,16 @@ pub struct Config {
     pub limit: usize,
     pub pattern: Option<Regex>,
     pub max_age: Option<Duration>,
+    pub mode: Mode,
     pub verbosity_level: u8,
     pub only_local_fs: bool,
-    pub print_dbg: bool
+    pub print_dbg: bool,
+}
+
+#[derive(Debug)]
+pub enum Mode {
+    File,
+    Dir,
 }
 
 impl Config {
@@ -41,6 +48,11 @@ impl Config {
             .value_of("pattern")
             .map(|p| Regex::from_str(p).expect("Unable to parse regex"));
         let max_age: Option<Duration> = parse_duration(args.value_of("mod_time"));
+        let mode: Mode = if args.is_present("dirs") {
+            Mode::Dir
+        } else {
+            Mode::File
+        };
         let verbosity_level: u8 = args.value_of("verbosity").unwrap().parse::<u8>().unwrap();
         let only_local_fs: bool = args.is_present("filesystem");
         let print_dbg: bool = args.is_present("debug");
@@ -52,9 +64,10 @@ impl Config {
             limit,
             pattern,
             max_age,
+            mode,
             verbosity_level,
             only_local_fs,
-            print_dbg
+            print_dbg,
         }
     }
 }
@@ -70,7 +83,7 @@ fn parse_duration(input: Option<&str>) -> Option<Duration> {
     let last_char: char = input?.chars().last()?;
     if last_char.is_ascii_digit() {
         let amount: u64 = input.unwrap().parse().unwrap();
-        return Some(Duration::from_secs(amount))
+        return Some(Duration::from_secs(amount));
     }
     let input: &str = input.unwrap();
     let last_index: usize = input.len() - 1;
@@ -83,7 +96,7 @@ fn parse_duration(input: Option<&str>) -> Option<Duration> {
         'w' => amount * WEEK,
         'M' => ((amount as f64) * MONTH) as u64,
         'y' => ((amount as f64) * YEAR) as u64,
-        _ => panic!(format!("Invalid unit: {}", last_char))
+        _ => panic!(format!("Invalid unit: {}", last_char)),
     };
     Some(Duration::from_secs(seconds))
 }
