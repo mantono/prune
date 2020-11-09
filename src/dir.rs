@@ -4,8 +4,8 @@ use fwalker::Walker;
 use humansize::{file_size_opts as options, FileSize};
 use itertools::{Group, Itertools};
 use std::cmp::min;
-use std::collections::HashMap;
-use std::ffi::OsStr;
+use std::collections::{HashMap, VecDeque};
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
@@ -32,9 +32,9 @@ impl Relation<PathBuf> for PathBuf {
 
 #[derive(Debug)]
 pub struct Dir {
-    path: PathBuf,
+    path: String,
     size: u64,
-    dirs: Vec<Box<Dir>>,
+    dirs: HashMap<String, Vec<Box<Dir>>>,
 }
 
 impl Dir {
@@ -49,6 +49,10 @@ impl Dir {
         } else {
             Err(format!("Path is not a directory: {:?}", root))
         }
+    }
+
+    pub fn add_vec(mut self, mut path: VecDeque<OsString>, size: u64) -> Dir {
+        path.pop_front()
     }
 
     pub fn add(mut self, path: PathBuf, size: u64) -> Dir {

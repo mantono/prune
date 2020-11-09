@@ -4,29 +4,20 @@ extern crate humansize;
 mod args;
 mod cfg;
 mod dbg;
-mod dir;
 mod find;
 mod logger;
 
 use crate::cfg::Config;
 use crate::cfg::Mode;
 use crate::dbg::dbg_info;
-use crate::dir::Dir;
 use crate::find::{filter_mod_time, filter_name, filter_size, summarize};
 use crate::logger::setup_logging;
-use core::cmp::Ordering;
-use core::iter::Sum;
 use fwalker::Walker;
 use humansize::{file_size_opts as options, FileSize};
-use itertools::{Group, Itertools};
-use std::cmp::min;
+use itertools::Itertools;
 use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::fmt::{Display, Formatter};
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::process;
-use std::time::SystemTime;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
@@ -66,9 +57,7 @@ fn walk_files(cfg: &Config) {
 
 fn walk_dirs(cfg: &Config) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
-    use itertools::GroupBy;
 
-    //let dirs: HashMap<PathBuf, u64> =
     cfg.paths
         .iter()
         .map(PathBuf::from)
@@ -82,36 +71,13 @@ fn walk_dirs(cfg: &Config) {
             let new_size = cur_size + size;
             acc_size.insert(dir.to_path_buf(), new_size);
         });
-    // .group_by(|(dir, _)| dir)
-    // .into_iter()
-    // .map(|(dir, sizes)| (dir, sizes.collect()))
-    // .map(|(dir, sizes)| sum(dir.clone(), sizes))
-    //.collect();
 
-    // .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
-    // .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
-    // .take(cfg.limit)
-    // .inspect(|f| print(f))
-    // .collect();
-
-    //let (found, size) = summarize(files);
-
-    let dir = cfg.paths.first().unwrap();
-    let size = acc_size.get(dir).unwrap_or(&0);
-
-    let mut dir_tree = dir::Dir::from(dir.to_path_buf(), *size).unwrap();
-
-    let dir_tree = acc_size
+    acc_size
         .iter()
         .filter(|(_, size)| **size >= cfg.min_size)
-        .fold(dir_tree, |acc, (dir, size)| {
-            acc.add(dir.to_path_buf(), *size)
-        });
-
-    println!("{}", dir_tree);
-    //.for_each(|(dir, size)| dir_tree.add(dir.to_path_buf(), *size))
-    //.sorted_by(|(dir0, _), (dir1, _)| cmp_path(&dir0, &dir1))
-    //.for_each(|(dir, size)| print_dir(dir, *size));
+        .take(cfg.limit)
+        .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
+        .for_each(|(path, size)| print_dir(path, *size));
 
     let size: u64 = acc_size.values().sum();
     let found: usize = acc_size.len();
@@ -119,24 +85,10 @@ fn walk_dirs(cfg: &Config) {
     println!("Found {} files with a total size of {}", found, human_size);
 }
 
-fn cmp_path(left: &PathBuf, right: &PathBuf) -> core::cmp::Ordering {
-    let level_left: usize = left.components().count();
-    let level_right: usize = right.components().count();
-    match level_left.cmp(&level_right) {
-        Ordering::Less => Ordering::Less,
-        Ordering::Greater => Ordering::Greater,
-        Ordering::Equal => left.cmp(right),
-    }
-}
-
 fn size_of(file: &PathBuf) -> (PathBuf, u64) {
     let size: u64 = file.metadata().unwrap().len();
     let parent: PathBuf = file.parent().unwrap().to_path_buf();
     (parent, size)
-}
-
-fn sum(dir: PathBuf, sizes: Vec<(PathBuf, u64)>) -> (PathBuf, u64) {
-    (dir, sizes.iter().map(|(_, v)| v).sum())
 }
 
 fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
