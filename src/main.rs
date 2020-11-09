@@ -11,6 +11,7 @@ mod logger;
 use crate::cfg::Config;
 use crate::cfg::Mode;
 use crate::dbg::dbg_info;
+use crate::dir::Dir;
 use crate::find::{filter_mod_time, filter_name, filter_size, summarize};
 use crate::logger::setup_logging;
 use core::cmp::Ordering;
@@ -95,79 +96,28 @@ fn walk_dirs(cfg: &Config) {
 
     //let (found, size) = summarize(files);
 
-    acc_size
+    let dir = cfg.paths.first().unwrap();
+    let size = acc_size.get(dir).unwrap_or(&0);
+
+    let mut dir_tree = dir::Dir::from(dir.to_path_buf(), *size).unwrap();
+
+    let dir_tree = acc_size
         .iter()
         .filter(|(_, size)| **size >= cfg.min_size)
-        .sorted_by(|(dir0, _), (dir1, _)| cmp_path(&dir0, &dir1))
-        .for_each(|(dir, size)| print_dir(dir, *size));
+        .fold(dir_tree, |acc, (dir, size)| {
+            acc.add(dir.to_path_buf(), *size)
+        });
+
+    println!("{}", dir_tree);
+    //.for_each(|(dir, size)| dir_tree.add(dir.to_path_buf(), *size))
+    //.sorted_by(|(dir0, _), (dir1, _)| cmp_path(&dir0, &dir1))
+    //.for_each(|(dir, size)| print_dir(dir, *size));
 
     let size: u64 = acc_size.values().sum();
     let found: usize = acc_size.len();
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
     println!("Found {} files with a total size of {}", found, human_size);
 }
-
-// struct DirTree {
-//     level: usize,
-//     dir: PathBuf,
-//     children: Vec<Box<DirTree>>,
-// }
-
-// impl DirTree {
-//     pub fn size(&self) -> u64 {
-//         let own_size: u64 = self.dir.metadata().unwrap().len();
-//         let children_size: u64 = self.children.iter().map(|c| c.size()).sum::<u64>();
-//         own_size + children_size
-//     }
-//
-//     pub fn from(root: PathBuf) -> DirTree {
-//         DirTree {
-//             level: 0,
-//             dir: root,
-//             children: Vec::with_capacity(8),
-//         }
-//     }
-//
-//     pub fn add(&mut self, dir: PathBuf) -> &mut DirTree {
-//         if dir.is_child_of(&self.dir) {
-//             let child = DirTree {
-//                 level: self.level + 1,
-//                 dir
-//             }
-//             self.children
-//         }
-//     }
-//
-//     fn create(dir: PathBuf, others: Vec<PathBuf>, level: usize) -> DirTree {
-//         let children: Vec<Box<DirTree>> = Vec::with_capacity(others.len());
-//         let this = DirTree {
-//             level,
-//             dir: dir.clone(),
-//             children,
-//         };
-//
-//         others
-//             .iter()
-//             .filter(|c| c.starts_with(&dir))
-//             .filter(|c| **c != dir)
-//             .collect();
-//     }
-//
-//     fn from_level(map: HashMap<PathBuf, u64>, level: usize) -> DirTree {
-//         map.iter().sorted().ma
-//     }
-// }
-
-// impl Display for DirTree {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         let prefix: String = match self.level {
-//             0 => String::from(""),
-//             1 => String::from("├── "),
-//             _ => format!("│{}└── ", " ".repeat((3 * self.level) as usize)),
-//         };
-//         write!(f, "{}{:?}", prefix, self.dir)
-//     }
-// }
 
 fn cmp_path(left: &PathBuf, right: &PathBuf) -> core::cmp::Ordering {
     let level_left: usize = left.components().count();
