@@ -95,9 +95,8 @@ fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathB
     if path == *root {
         return;
     }
-    match path.parent() {
-        Some(parent) => update_size(acc_size, PathBuf::from(parent), root, size),
-        None => return,
+    if let Some(parent) = path.parent() {
+        update_size(acc_size, PathBuf::from(parent), root, size)
     }
 }
 
