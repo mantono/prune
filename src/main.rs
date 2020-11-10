@@ -57,6 +57,8 @@ fn walk_files(cfg: &Config) {
 
 fn walk_dirs(cfg: &Config) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
+    let root: &PathBuf = cfg.paths.iter().sorted().collect_vec().first().unwrap();
+    let root_level: usize = root.components().count();
 
     cfg.paths
         .iter()
@@ -66,23 +68,37 @@ fn walk_dirs(cfg: &Config) {
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .map(|f: PathBuf| size_of(&f))
-        .for_each(|(dir, size)| {
-            let cur_size: u64 = *acc_size.get(&dir).unwrap_or(&0u64);
-            let new_size = cur_size + size;
-            acc_size.insert(dir.to_path_buf(), new_size);
-        });
+        .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
-    acc_size
+    let acc_size: Vec<u64> = acc_size
         .iter()
         .filter(|(_, size)| **size >= cfg.min_size)
         .take(cfg.limit)
         .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
-        .for_each(|(path, size)| print_dir(path, *size));
+        .inspect(|(path, size)| print_dir(path, **size, root_level))
+        .map(|(_, size)| *size)
+        .collect_vec();
 
-    let size: u64 = acc_size.values().sum();
+    let size: u64 = *acc_size.iter().max().unwrap_or(&0);
     let found: usize = acc_size.len();
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
-    println!("Found {} files with a total size of {}", found, human_size);
+    println!(
+        "Found {} directories with a total size of {}",
+        found, human_size
+    );
+}
+
+fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathBuf, size: u64) {
+    let cur_size: u64 = *acc_size.get(&path).unwrap_or(&0u64);
+    let new_size = cur_size + size;
+    acc_size.insert(path.clone(), new_size);
+    if path == *root {
+        return;
+    }
+    match path.parent() {
+        Some(parent) => update_size(acc_size, PathBuf::from(parent), root, size),
+        None => return,
+    }
 }
 
 fn size_of(file: &PathBuf) -> (PathBuf, u64) {
@@ -117,22 +133,53 @@ fn check_path(path: &PathBuf) {
 }
 
 fn print(file: &PathBuf) {
-    let canon: PathBuf = file
-        .canonicalize()
-        .expect("Unable to get canonical path for file");
+    let path: String = fmt_path(file, 0);
     let size = file
         .metadata()
         .unwrap()
         .len()
         .file_size(options::CONVENTIONAL)
         .unwrap();
-    println!("{}, {:?}", size, canon);
+    println!("{:>10} │ {}", size, path);
 }
 
-fn print_dir(dir: &PathBuf, size: u64) {
+fn print_dir(dir: &PathBuf, size: u64, root_level: usize) {
     let canon: PathBuf = dir
         .canonicalize()
         .expect("Unable to get canonical path for dir");
-    let size = size.file_size(options::CONVENTIONAL).unwrap();
-    println!("{}, {:?}", size, canon);
+    let level: usize = canon.components().count();
+    let rel_level: usize = level - root_level;
+    let size: String = size.file_size(options::CONVENTIONAL).unwrap();
+    let size: String = format!("{:>10}", size);
+    let path_str: String = fmt_path(dir, root_level);
+
+    let pad_space = ((rel_level) * 2) + 2;
+    match rel_level {
+        0 => println!("{} {}", size, path_str),
+        1 => println!("{} ├── {}", size, path_str),
+        _ => println!(
+            "{} │{:>width$} {}",
+            size,
+            "└──",
+            path_str,
+            width = pad_space
+        ),
+    }
+}
+
+fn fmt_path(path: &PathBuf, root_level: usize) -> String {
+    let skip = if root_level == 0 {
+        root_level
+    } else {
+        root_level - 1
+    };
+
+    path.canonicalize()
+        .unwrap()
+        .components()
+        .skip(skip)
+        .map(|c| c.as_os_str().to_str().unwrap())
+        .join("/")
+        .replacen("//", "/", 1)
+        .replace("\"", "")
 }
