@@ -154,7 +154,7 @@ fn print_dir(dir: &PathBuf, size: u64, root_level: usize) {
     let rel_level: usize = level - root_level;
     let size: String = size.file_size(options::CONVENTIONAL).unwrap();
     let size: String = format!("{:>10}", size);
-    let path_str: String = fmt_path(dir, root_level);
+    let path_str: String = fmt_path(dir, root_level + rel_level);
 
     let pad_space = ((rel_level) * 2) + 2;
     match rel_level {
