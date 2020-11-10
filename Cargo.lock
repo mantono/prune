@@ -167,9 +167,9 @@ dependencies = [
 
 [[package]]
 name = "fwalker"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2182eaf158c5939be5cd1d52f901fed175e9606dca3f0591727790f1373fcb14"
+checksum = "f580d713db8f26aa13f134aaf985bcb02e8caff1b6b17cf553b1eaa357de7633"
 dependencies = [
  "log",
  "sysinfo",
@@ -497,9 +497,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.14.3"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa748057b52aac5fe6cf62677d536dcf4b639551496552aa2a8c43c501765ccc"
+checksum = "67330cbee3b2a819e3365a773f05e884a136603687f812bf24db5b6c3d76b696"
 dependencies = [
  "cfg-if",
  "doc-comment",

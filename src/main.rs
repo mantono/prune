@@ -102,7 +102,10 @@ fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathB
 }
 
 fn size_of(file: &PathBuf) -> (PathBuf, u64) {
-    let size: u64 = file.metadata().unwrap().len();
+    let size: u64 = match file.metadata() {
+        Ok(metadata) => metadata.len(),
+        Err(_) => 0,
+    };
     let parent: PathBuf = file.parent().unwrap().to_path_buf();
     (parent, size)
 }
