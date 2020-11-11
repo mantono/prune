@@ -23,7 +23,19 @@ pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
     match pattern {
         None => true,
         Some(regex) => {
-            let file_name: &str = path.file_name().unwrap().to_str().unwrap();
+            let file_name: &str = match path.file_name() {
+                Some(f) => match f.to_str() {
+                    Some(f_str) => f_str,
+                    None => {
+                        log::error!("Unable to parse filename for: {:?}", path);
+                        return false;
+                    }
+                },
+                None => {
+                    log::error!("No filename for file: {:?}", path);
+                    return false;
+                }
+            };
             regex.is_match(file_name)
         }
     }
