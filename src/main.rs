@@ -39,9 +39,7 @@ fn walk_files(cfg: &Config) {
     let files: Vec<PathBuf> = cfg
         .paths
         .iter()
-        .map(PathBuf::from)
-        .inspect(check_path)
-        .flat_map(|path: PathBuf| create_walker(&cfg, &path))
+        .flat_map(|path: &PathBuf| create_walker(&cfg, path))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
@@ -62,9 +60,7 @@ fn walk_dirs(cfg: &Config) {
 
     cfg.paths
         .iter()
-        .map(PathBuf::from)
-        .inspect(check_path)
-        .flat_map(|path: PathBuf| create_walker(&cfg, &path))
+        .flat_map(|path: &PathBuf| create_walker(&cfg, path))
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .map(|f: PathBuf| size_of(&f))

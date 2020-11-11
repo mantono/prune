@@ -1,5 +1,7 @@
 use crate::args::Size::{Byte, Gigabyte, Kilobyte, Megabyte, Terabyte};
 use clap::{App, Arg, ArgMatches};
+use regex::Regex;
+use std::path::PathBuf;
 
 pub fn args<'a>() -> ArgMatches<'a> {
     let path = Arg::with_name("path")
@@ -8,6 +10,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .required(false)
         .multiple(true)
         .help("Paths to look for files in")
+        .validator(validate_path)
         .long_help("Select zero, one or several directories for which to look for files in. If no value is give, the application will default to current directory.");
 
     let depth = Arg::with_name("depth")
@@ -113,13 +116,26 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(dirs)
         .arg(verbosity)
         .arg(filesystem)
+        .arg(plumbing)
         .arg(debug)
         .get_matches();
 
     args
 }
 
-use regex::Regex;
+fn validate_path(path: String) -> Result<(), String> {
+    let path: PathBuf = match PathBuf::from(path.clone()).canonicalize() {
+        Ok(path) => path,
+        Err(e) => return Err(format!("Cannot read path {:?}: {}", path, e)),
+    };
+    if !path.exists() {
+        Err(format!("Path does not exist: {:?}", path))
+    } else if !path.is_dir() {
+        Err(format!("Path is not a directory: {:?}", path))
+    } else {
+        Ok(())
+    }
+}
 
 fn validate_size(size: String) -> Result<(), String> {
     let regex = Regex::new(r"^\d+[bkmgtBKMGT]?$").unwrap();

@@ -42,7 +42,8 @@ impl Config {
         let paths: Vec<PathBuf> = args
             .values_of("path")
             .unwrap()
-            .map(|v| PathBuf::from(v).canonicalize().unwrap())
+            .map(PathBuf::from)
+            .map(|p| p.canonicalize().unwrap())
             .collect();
         let pattern: Option<Regex> = args
             .value_of("pattern")
