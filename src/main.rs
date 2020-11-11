@@ -6,14 +6,15 @@ mod cfg;
 mod dbg;
 mod find;
 mod logger;
+mod print;
 
 use crate::cfg::Config;
 use crate::cfg::Mode;
 use crate::dbg::dbg_info;
 use crate::find::{filter_mod_time, filter_name, filter_size, summarize};
 use crate::logger::setup_logging;
+use crate::print::{print_dir, print_file, print_summary};
 use fwalker::Walker;
-use humansize::{file_size_opts as options, FileSize};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -44,13 +45,12 @@ fn walk_files(cfg: &Config) {
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
         .take(cfg.limit)
-        .inspect(|f| print(f))
+        .inspect(|f| print_file(f, cfg))
         .collect();
 
     let (found, size) = summarize(files);
 
-    let human_size = size.file_size(options::CONVENTIONAL).unwrap();
-    println!("Found {} files with a total size of {}", found, human_size);
+    print_summary("files", found, size, cfg);
 }
 
 fn walk_dirs(cfg: &Config) {
@@ -71,17 +71,14 @@ fn walk_dirs(cfg: &Config) {
         .filter(|(_, size)| **size >= cfg.min_size)
         .take(cfg.limit)
         .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
-        .inspect(|(path, size)| print_dir(path, **size, root_level))
+        .inspect(|(path, size)| print_dir(path, **size, root_level, cfg))
         .map(|(_, size)| *size)
         .collect_vec();
 
     let size: u64 = *acc_size.iter().max().unwrap_or(&0);
-    let found: usize = acc_size.len();
-    let human_size = size.file_size(options::CONVENTIONAL).unwrap();
-    println!(
-        "Found {} directories with a total size of {}",
-        found, human_size
-    );
+    let found: u64 = acc_size.len() as u64;
+
+    print_summary("directories", found, size, cfg);
 }
 
 fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathBuf, size: u64) {
@@ -117,67 +114,4 @@ fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
     };
     log::debug!("walker: {:?}", walker);
     walker
-}
-
-fn check_path(path: &PathBuf) {
-    if !path.exists() {
-        log::error!("Path does not exist: {:?}", path);
-        process::exit(1);
-    }
-    if !path.is_dir() {
-        log::error!("Path is not a directory: {:?}", path);
-        process::exit(2);
-    }
-}
-
-fn print(file: &PathBuf) {
-    let path: String = fmt_path(file, 0);
-    let size = file
-        .metadata()
-        .unwrap()
-        .len()
-        .file_size(options::CONVENTIONAL)
-        .unwrap();
-    println!("{:>10} │ {}", size, path);
-}
-
-fn print_dir(dir: &PathBuf, size: u64, root_level: usize) {
-    let canon: PathBuf = dir
-        .canonicalize()
-        .expect("Unable to get canonical path for dir");
-    let level: usize = canon.components().count();
-    let rel_level: usize = level - root_level;
-    let size: String = size.file_size(options::CONVENTIONAL).unwrap();
-    let size: String = format!("{:>10}", size);
-    let path_str: String = fmt_path(dir, root_level + rel_level);
-
-    let pad_space = ((rel_level) * 2) + 2;
-    match rel_level {
-        0 => println!("{} {}", size, path_str),
-        1 => println!("{} ├── {}", size, path_str),
-        _ => println!(
-            "{} │{:>width$} {}",
-            size,
-            "└──",
-            path_str,
-            width = pad_space
-        ),
-    }
-}
-
-fn fmt_path(path: &PathBuf, root_level: usize) -> String {
-    let skip = if root_level == 0 {
-        root_level
-    } else {
-        root_level - 1
-    };
-
-    path.canonicalize()
-        .unwrap()
-        .components()
-        .skip(skip)
-        .map(|c| c.as_os_str().to_str().unwrap())
-        .join("/")
-        .replacen("//", "/", 1)
-        .replace("\"", "")
 }

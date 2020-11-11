@@ -19,7 +19,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .long("depth")
         .required(false)
         .help("Depth in folder hierarchy")
-        .long_help("Descend and search for files in directories with a max depth of this value. A depth of 0 will only look for files at the first level. By default the depth is unlimited.");
+        .long_help("Descend and search for files or directories in directories with a max depth of this value. A depth of 0 will only look for files at the first level. By default the depth is unlimited.");
 
     let size = Arg::with_name("size")
         .default_value("100m")
@@ -30,7 +30,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .multiple(false)
         .required(false)
         .help("Minimum file size")
-        .long_help("Only show files which exceeds this file size. For example 400 is equivalent of 400 bytes, 20m is equivalent of 20 megabytes and 5g is equivalent of 5 gigabytes.");
+        .long_help("Only show files or directories which exceeds this size. For example 400 is equivalent of 400 bytes, 20m is equivalent of 20 megabytes and 5g is equivalent of 5 gigabytes.");
 
     let pattern = Arg::with_name("pattern")
         .takes_value(true)
@@ -95,6 +95,13 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .long("filesystem")
         .help("Current filesystem only")
         .long_help("Only search for files in the same filesystem for the given path(s), or the current file system if no path is given.");
+
+    let plumbing = Arg::with_name("plumbing")
+        .takes_value(false)
+        .short("P")
+        .long("plumbing")
+        .help("Use plumbing mode")
+        .long_help("Use plumbing mode (as opposed to 'porcelain' mode) with an output that is more consistent and machine readable");
 
     let debug = Arg::with_name("debug")
         .takes_value(false)

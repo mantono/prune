@@ -16,6 +16,7 @@ pub struct Config {
     pub mode: Mode,
     pub verbosity_level: u8,
     pub only_local_fs: bool,
+    pub plumbing_mode: bool,
     pub print_dbg: bool,
 }
 
@@ -56,6 +57,7 @@ impl Config {
         };
         let verbosity_level: u8 = args.value_of("verbosity").unwrap().parse::<u8>().unwrap();
         let only_local_fs: bool = args.is_present("filesystem");
+        let plumbing_mode: bool = args.is_present("plumbing");
         let print_dbg: bool = args.is_present("debug");
 
         Config {
@@ -67,6 +69,7 @@ impl Config {
             max_age,
             mode,
             verbosity_level,
+            plumbing_mode,
             only_local_fs,
             print_dbg,
         }
