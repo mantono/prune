@@ -7,6 +7,7 @@ mod dbg;
 mod find;
 mod logger;
 mod print;
+mod tree;
 
 use crate::cfg::Config;
 use crate::cfg::Mode;
