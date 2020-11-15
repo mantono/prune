@@ -1,17 +1,18 @@
 use itertools::Itertools;
 use std::borrow::{Borrow, BorrowMut};
-use std::cmp::Ordering;
+use std::cmp::{max, Ordering};
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::ops::Deref;
+use std::path::PathBuf;
 
 #[derive(Debug)]
-struct Tree<T: Eq + Ord + Hash + Sized> {
-    nodes: Vec<Node<T>>,
+struct Tree {
+    nodes: Vec<Node>,
 }
 
-impl<T: Eq + Ord + Hash + Sized> Tree<T> {
-    pub fn from(value: T, initial_capacity: usize) -> Tree<T> {
+impl Tree {
+    pub fn from(value: PathBuf, initial_capacity: usize) -> Tree {
         let mut tree = Tree {
             nodes: Vec::with_capacity(initial_capacity),
         };
@@ -25,62 +26,78 @@ impl<T: Eq + Ord + Hash + Sized> Tree<T> {
         tree
     }
 
-    pub fn add_into(self, value: T) -> Tree<T> {
-        let index: usize = self.next_index(&value);
-        self.add_into_index(value, index)
+    pub fn add_into(self, value: PathBuf) -> Tree {
+        let index: usize = self.last_index();
+        self.add_into_index(index, value)
     }
 
-    fn next_index(&self, value: &T) -> usize {
-        let node: Option<usize> = self
-            .nodes
-            .iter()
-            .enumerate()
-            .rev()
-            .filter(
-                |(i, node): &(usize, &Node<T>)| match node.value.cmp(&value) {
-                    Ordering::Greater => true,
-                    Ordering::Equal => true,
-                    Ordering::Less => false,
-                },
-            )
-            .map(|(i, _)| i)
-            .next();
+    fn last_index(&self) -> usize {
+        self.nodes.len() - 1
+    }
 
-        match node {
-            Some(i) => i,
-            None => self.nodes.len(),
+    fn add_into_index(self, index: usize, value: PathBuf) -> Tree {
+        let node: &Node = match self.get_node(index) {
+            Some(node) => node,
+            None => panic!("Not possible?"),
+        };
+
+        let relation: Relation = node.value.relation(&value);
+        self.on_relation(index, value, relation)
+    }
+
+    fn get_node(&self, index: usize) -> Option<&Node> {
+        self.nodes.get(index)
+    }
+
+    fn get_mut_node(&mut self, index: usize) -> Option<&mut Node> {
+        self.nodes.get_mut(index)
+    }
+
+    fn on_relation(self, index: usize, value: PathBuf, relation: Relation) -> Tree {
+        match relation {
+            Relation::Equal => self,
+            Relation::Siblings => self.handle_siblings(index, value),
+            Relation::Ancestor => self.handle_ancestor(index, value),
+            _ => panic!("Not supported yet: {:?}", relation),
         }
     }
 
-    fn add_into_index(self, value: T, parent: Option<usize>, index: usize) -> Tree<T> {
-        match self.nodes.get_mut(index) {
-            Some(n) => {
+    fn handle_ancestor(self, index: usize, value: PathBuf) -> Tree {}
 
-                self.add_into_index(self, n.)
-            },
-            None => {
-                let node = Node {
-                    value,
-                    parent,
-                    children: None,
-                };
-                self.nodes.push(node);
-                self
-            }
-        }
+    fn handle_siblings(self, index: usize, value: PathBuf) -> Tree {
+        let parent_index: usize = self
+            .get_node(index)
+            .unwrap()
+            .parent
+            .expect("Must have parent");
+        let new_node = Node {
+            value,
+            parent: Some(parent_index),
+            children: None,
+        };
+        self.add_node(parent_index, new_node)
+    }
+
+    fn add_node(mut self, parent_index: usize, node: Node) -> Tree {
+        self.nodes.push(node);
+        let last_index: usize = self.last_index();
+        self.get_mut_node(parent_index)
+            .unwrap()
+            .add_child(last_index);
+        self
     }
 }
 
 #[derive(Debug)]
-struct Node<T: Eq + Ord + Hash + Sized> {
-    value: T,
+struct Node {
+    value: PathBuf,
     parent: Option<usize>,
     children: Option<Vec<usize>>,
 }
 
-impl<T: Eq + Ord + Hash + Sized> Node<T> {
+impl Node {
     pub fn add_child(&mut self, index: usize) {
-        match self.children {
+        match &mut self.children {
             Some(children) => children.push(index),
             None => {
                 let mut children = Vec::with_capacity(2);
@@ -90,60 +107,6 @@ impl<T: Eq + Ord + Hash + Sized> Node<T> {
         }
     }
 }
-
-//
-// //struct Tree<T: Relational<T> + Eq + Hash + Sized> {
-// struct Tree<T: Eq + Ord + Hash + Sized> {
-//     value: T,
-//     tree: Vec<Box<Tree<T>>>,
-// }
-//
-// //impl<T: Relational<T> + Eq + Hash + Sized> Tree<T> {
-// impl<T: Eq + Ord + Hash + Sized> Tree<T> {
-//     pub fn from(value: T) -> Tree<T> {
-//         Tree {
-//             value,
-//             tree: Vec::new(),
-//         }
-//     }
-//
-//     pub fn add(mut self, value: T) -> Tree<T> {
-//         match self.value.cmp(&value) {
-//             Ordering::Equal => self,
-//             Ordering::Less => {
-//                 let mut tree = Vec::new();
-//                 tree.push(Box::new(self));
-//                 Tree { value, tree }
-//             }
-//             Ordering::Greater => {
-//                 let ancestor: Option<&Box<Tree<T>>> = self
-//                     .tree
-//                     .iter()
-//                     .find(|x| value.cmp(&x.value) == Ordering::Less);
-//                 match ancestor {
-//                     Some(ancestor) => ancestor.add(value),
-//                     None => {
-//                         let tree = Tree::from(value);
-//                         self.tree.push(Box::new(tree));
-//                         self
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-// fn add(mut self, value: T) -> Tree<T> {
-//     match self.value.relation(value) {
-//         Relation::Equal(_, _) => self,
-//         Relation::Siblings(_, _) => panic!("Should not have sinblings here"),
-//         Relation::Inheritance { parent, child } => {
-//             if parent == self {
-//                 self.children.iter().map(|x| x.relation(child)).filter(|x| x.)
-//             }
-//         },
-//     }
-// }
-//}
 
 #[cfg(test)]
 mod tests {
@@ -184,8 +147,24 @@ mod tests {
     }
 }
 
+impl Relational<PathBuf> for PathBuf {
+    fn relation(&self, other: &PathBuf) -> Relation {
+        if self == other {
+            Relation::Equal
+        } else if self.parent() == other.parent() {
+            Relation::Siblings
+        } else if self.starts_with(other) {
+            Relation::Descendant
+        } else if other.starts_with(self) {
+            Relation::Ancestor
+        } else {
+            Relation::None
+        }
+    }
+}
+
 trait Relational<T: Relational<T> + Eq + Hash + Sized> {
-    fn relation(&self, other: T) -> Relation<T>;
+    fn relation(&self, other: &T) -> Relation;
 }
 /// ```text
 ///         a           a > b (a parent of b)
@@ -226,13 +205,16 @@ trait Relational<T: Relational<T> + Eq + Hash + Sized> {
 /// 2. `/home/arthur/foo/bar` vs `[/home/arthur, /home/trillian]` => `[Inheritance, None]` (create `foo`)
 /// 3. `/home/arthur/foo/bar` vs `[/home/arthur/foo]` => `[Inheritance]` (create `bar`)
 ///
-enum Relation<T: Eq> {
+#[derive(Debug)]
+enum Relation {
     /// Two elements that are equal
-    Equal(T, T),
+    Equal,
     /// Two elements that are not equal but has the same parent
-    Siblings(T, T),
-    /// One element is an ancestor to another element
-    Inheritance { ancestor: T, descendant: T },
+    Siblings,
+    /// The first element is an ancestor to the second element
+    Ancestor,
+    /// The second element ia an ancestor to the first element
+    Descendant,
     /// The elements have no relation to each other
-    None(T, T),
+    None,
 }
