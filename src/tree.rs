@@ -26,23 +26,26 @@ impl Tree {
         tree
     }
 
-    pub fn add_into(self, value: PathBuf) -> Tree {
+    pub fn add_into(mut self, value: PathBuf) -> Tree {
+        let node = Node {
+            value,
+            children: None,
+            parent: None,
+        };
+        self.nodes.push(node);
         let index: usize = self.last_index();
-        self.add_into_index(index, value)
+        self.connect(index - 1, index)
     }
 
     fn last_index(&self) -> usize {
         self.nodes.len() - 1
     }
 
-    fn add_into_index(self, index: usize, value: PathBuf) -> Tree {
-        let node: &Node = match self.get_node(index) {
-            Some(node) => node,
-            None => panic!("Not possible?"),
-        };
-
-        let relation: Relation = node.value.relation(&value);
-        self.on_relation(index, value, relation)
+    fn connect(self, index: usize, new: usize) -> Tree {
+        let node: &Node = self.get_node(index).expect("Not possible");
+        let new_node: &Node = self.get_node(new).expect("Not possible");
+        let relation: Relation = node.value.relation(&new_node.value);
+        self.on_relation(index, new, relation)
     }
 
     fn get_node(&self, index: usize) -> Option<&Node> {
@@ -53,29 +56,86 @@ impl Tree {
         self.nodes.get_mut(index)
     }
 
-    fn on_relation(self, index: usize, value: PathBuf, relation: Relation) -> Tree {
+    fn on_relation(self, index: usize, new: usize, relation: Relation) -> Tree {
         match relation {
             Relation::Equal => self,
-            Relation::Siblings => self.handle_siblings(index, value),
-            Relation::Ancestor => self.handle_ancestor(index, value),
+            Relation::Siblings => self.handle_siblings(index, new),
+            Relation::Ancestor(n) => self.handle_ancestor(index, new, n),
+            Relation::None => {
+                let next: usize = self.parent_of(index).unwrap_or(0);
+                self.connect(next, new)
+            }
             _ => panic!("Not supported yet: {:?}", relation),
         }
     }
 
-    fn handle_ancestor(self, index: usize, value: PathBuf) -> Tree {}
+    fn parent_of(&self, node_index: usize) -> Option<usize> {
+        self.nodes.get(node_index).unwrap().parent
+    }
 
-    fn handle_siblings(self, index: usize, value: PathBuf) -> Tree {
+    fn handle_ancestor(mut self, anc_index: usize, new_index: usize, levels: usize) -> Tree {
+        match levels {
+            0 => panic!("Not valid"),
+            1 => {
+                self.get_mut_node(anc_index).unwrap().add_child(new_index);
+                self.get_mut_node(new_index).unwrap().parent = Some(anc_index);
+                self
+            }
+            _ => {
+                let parent_index: usize = self.get_node(anc_index).unwrap().parent.unwrap();
+                self.handle_ancestor(parent_index, new_index, levels - 1)
+            }
+        }
+    }
+
+    // fn add_child(node: Node, child_index: usize) -> Node {
+    //     let children: Vec<usize> = node.children.unwrap_or(Vec::new());
+    //     children.push(child_index);
+    //     node.children = Some(children);
+    //     node
+    // }
+
+    fn handle_siblings(mut self, index: usize, new: usize) -> Tree {
         let parent_index: usize = self
             .get_node(index)
             .unwrap()
             .parent
-            .expect("Must have parent");
-        let new_node = Node {
-            value,
-            parent: Some(parent_index),
-            children: None,
+            .unwrap_or(self.last_index());
+
+        if parent_index == self.nodes.len() {
+            let parent_path: PathBuf = self
+                .get_node(new)
+                .unwrap()
+                .value
+                .parent()
+                .clone()
+                .unwrap()
+                .to_path_buf();
+
+            let mut children = Vec::new();
+            children.push(parent_index);
+            let node = Node {
+                value: parent_path,
+                parent: None,
+                children: Some(children),
+            };
+
+            self.nodes.push(node);
+        }
+
+        let parent_node: &mut Node = self.get_mut_node(parent_index).unwrap();
+        match &mut parent_node.children {
+            Some(children) => children.push(new),
+            None => {
+                let mut children = Vec::new();
+                children.push(new);
+            }
         };
-        self.add_node(parent_index, new_node)
+
+        let new_node: &mut Node = self.get_mut_node(new).unwrap();
+        new_node.parent = Some(parent_index);
+
+        self
     }
 
     fn add_node(mut self, parent_index: usize, node: Node) -> Tree {
@@ -154,9 +214,11 @@ impl Relational<PathBuf> for PathBuf {
         } else if self.parent() == other.parent() {
             Relation::Siblings
         } else if self.starts_with(other) {
-            Relation::Descendant
+            let n = self.components().count() - other.components().count();
+            Relation::Descendant(n)
         } else if other.starts_with(self) {
-            Relation::Ancestor
+            let n = other.components().count() - self.components().count();
+            Relation::Ancestor(n)
         } else {
             Relation::None
         }
@@ -212,9 +274,9 @@ enum Relation {
     /// Two elements that are not equal but has the same parent
     Siblings,
     /// The first element is an ancestor to the second element
-    Ancestor,
+    Ancestor(usize),
     /// The second element ia an ancestor to the first element
-    Descendant,
+    Descendant(usize),
     /// The elements have no relation to each other
     None,
 }
