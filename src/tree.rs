@@ -1,17 +1,31 @@
-use itertools::Itertools;
-use std::borrow::{Borrow, BorrowMut};
-use std::cmp::{max, Ordering};
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::path::PathBuf;
 
 #[derive(Debug)]
-struct Tree {
+pub struct Tree {
     nodes: Vec<Node>,
 }
 
 impl Tree {
+    pub fn new() -> Tree {
+        Tree::with_capacity(16)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Tree {
+        let mut tree = Tree {
+            nodes: Vec::with_capacity(capacity),
+        };
+        let root = Node {
+            value: PathBuf::from("/"),
+            parent: None,
+            children: None,
+        };
+        tree.nodes.push(root);
+        tree
+    }
+
     pub fn from(value: PathBuf, initial_capacity: usize) -> Tree {
         let mut tree = Tree {
             nodes: Vec::with_capacity(initial_capacity),
@@ -26,7 +40,7 @@ impl Tree {
         tree
     }
 
-    pub fn add_into(mut self, value: PathBuf) -> Tree {
+    pub fn push(mut self, value: PathBuf) -> Tree {
         let node = Node {
             value,
             children: None,
@@ -87,13 +101,6 @@ impl Tree {
             }
         }
     }
-
-    // fn add_child(node: Node, child_index: usize) -> Node {
-    //     let children: Vec<usize> = node.children.unwrap_or(Vec::new());
-    //     children.push(child_index);
-    //     node.children = Some(children);
-    //     node
-    // }
 
     fn handle_siblings(mut self, index: usize, new: usize) -> Tree {
         let parent_index: usize = self
@@ -177,11 +184,13 @@ mod tests {
     ///
     /// ```text
     /// PATH                        | Index Parent  Children
-    /// /home/arthur                │ 0             [1, 2]
-    ///     /home/arthur/foo        | 1     0
-    ///     /home/arthur/bar        | 2     0       [3]
-    ///     /home/arthur/bar/docs   | 3     2
-    /// /home/trillian              | 4
+    /// /                           │ 0             [1]
+    /// /home                       │ 1     0       [2, 6]
+    /// /home/arthur                │ 2     1       [3, 4, 5]
+    ///     /home/arthur/foo        │ 3     2
+    ///     /home/arthur/bar        │ 4     2       [3]
+    ///     /home/arthur/bar/docs   │ 5     4
+    /// /home/trillian              │ 6     1
     /// ```
     /// Inserting `/home/arthur/bar/files`;
     /// 1. Take a random index from the indices of the vector: 3
@@ -197,11 +206,11 @@ mod tests {
         let trillian = PathBuf::from("/home/trillian");
 
         let tree = Tree::from(arthur, 8)
-            .add_into(arthur_foo)
-            .add_into(arthur_bar)
-            .add_into(arthur_bar_docs)
-            .add_into(arthur_bar_files)
-            .add_into(trillian);
+            .push(arthur_foo)
+            .push(arthur_bar)
+            .push(arthur_bar_docs)
+            .push(arthur_bar_files)
+            .push(trillian);
 
         println!("{:?}", tree);
     }
@@ -228,44 +237,21 @@ impl Relational<PathBuf> for PathBuf {
 trait Relational<T: Relational<T> + Eq + Hash + Sized> {
     fn relation(&self, other: &T) -> Relation;
 }
-/// ```text
-///         a           a > b (a parent of b)
-///        / \
-///       /   \
-///      b     c        b ~= c (b and c are siblings
-///     / \     \
-///    /   \     \
-///   d    e     f      d ~= e (d and e are siblings)
-///
-///                     e != f (e and f have no close relation)
-/// ```
-///
 /// **Siblings**
 ///  - /home/arthur
 ///  - /home/trillian
 ///
-/// **Ancestor / Descendant**
+/// **Ancestor**
 ///  - /home
 ///  - /home/trillian
+///
+/// **Descendant**
+///  - /home/trillian
+///  - /home
 ///
 /// **Equal**
 ///  - /home
 ///  - /home
-///
-/// _Structure_
-/// ```text
-/// /home
-///     /home/trillian
-///         /home/trillian/docs
-///         /home/trillian/audio
-///         /home/trillian/secrets
-///    /home/arthur
-///        /home/arthur/files
-/// ```
-/// Insert `/home/arthur/docs`;
-/// 1. `/home/arthur/foo/bar` vs `/home` => `[/home/arthur/foo/bar]` => `[Inheritance]`
-/// 2. `/home/arthur/foo/bar` vs `[/home/arthur, /home/trillian]` => `[Inheritance, None]` (create `foo`)
-/// 3. `/home/arthur/foo/bar` vs `[/home/arthur/foo]` => `[Inheritance]` (create `bar`)
 ///
 #[derive(Debug)]
 enum Relation {
