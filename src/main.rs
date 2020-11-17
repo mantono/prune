@@ -56,7 +56,6 @@ fn walk_files(cfg: &Config) {
 fn walk_dirs(cfg: &Config) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
     let root: &PathBuf = cfg.paths.iter().sorted().collect_vec().first().unwrap();
-    let root_level: usize = root.components().count();
 
     cfg.paths
         .iter()
@@ -71,7 +70,7 @@ fn walk_dirs(cfg: &Config) {
         .filter(|(_, size)| **size >= cfg.min_size)
         .take(cfg.limit)
         .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
-        .inspect(|(path, size)| print_dir(path, **size, root_level, cfg))
+        .inspect(|(path, size)| print_dir(path, **size, cfg))
         .map(|(_, size)| *size)
         .collect_vec();
 

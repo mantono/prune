@@ -8,45 +8,21 @@ pub fn print_file(file: &PathBuf, cfg: &Config) {
     if cfg.plumbing_mode {
         print_plumbing(file, size)
     } else {
-        print_file_porcelain(file, size)
+        print_porcelain(file, size)
     }
 }
 
-fn print_file_porcelain(file: &PathBuf, size: u64) {
+fn print_porcelain(file: &PathBuf, size: u64) {
     let path: String = fmt_path(file, 0);
     let size = size.file_size(options::CONVENTIONAL).unwrap();
     println!("{:>10} │ {}", size, path);
 }
 
-pub fn print_dir(dir: &PathBuf, size: u64, root_level: usize, cfg: &Config) {
+pub fn print_dir(dir: &PathBuf, size: u64, cfg: &Config) {
     if cfg.plumbing_mode {
         print_plumbing(dir, size)
     } else {
-        print_dir_porcelain(&dir, size, root_level)
-    }
-}
-
-fn print_dir_porcelain(dir: &PathBuf, size: u64, root_level: usize) {
-    let canon: PathBuf = dir
-        .canonicalize()
-        .expect("Unable to get canonical path for dir");
-    let level: usize = canon.components().count();
-    let rel_level: usize = level - root_level;
-    let size: String = size.file_size(options::CONVENTIONAL).unwrap();
-    let size: String = format!("{:>10}", size);
-    let path_str: String = fmt_path(dir, root_level + rel_level);
-
-    let pad_space = ((rel_level) * 2) + 2;
-    match rel_level {
-        0 => println!("{} {}", size, path_str),
-        1 => println!("{} ├── {}", size, path_str),
-        _ => println!(
-            "{} │{:>width$} {}",
-            size,
-            "└──",
-            path_str,
-            width = pad_space
-        ),
+        print_porcelain(&dir, size)
     }
 }
 
