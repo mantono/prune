@@ -378,6 +378,7 @@ dependencies = [
  "itertools",
  "log",
  "regex",
+ "serde",
 ]
 
 [[package]]
