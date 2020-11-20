@@ -23,7 +23,6 @@ jobs:
         get-content Cargo.toml | %{$_ -replace "prn","prune"} > windows.toml
         mv -Force windows.toml Cargo.toml
     - name: Fetch Dependencies
-      if: steps.cache-cargo-fetch.outputs.cache-hit != 'true'
       run: cargo fetch
     - name: Build
       run: cargo build --all-features
