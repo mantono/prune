@@ -22,6 +22,16 @@ jobs:
       run: |
         get-content Cargo.toml | %{$_ -replace "prn","prune"} > windows.toml
         mv -Force windows.toml Cargo.toml
+    - uses: actions/cache@v2
+      id: cache-cargo-fetch
+      with:
+        key: ${{ runner.os }}-cargo-fetch-${{ hashFiles('Cargo.lock') }}
+        path:
+          - ~/.cargo/registry/index
+          - ~/.cargo/registry/cache
+          - ~/.cargo/git
+          - ./target
+        restore-keys: ${{ runner.os }}-cargo-fetch-${{ hashFiles('Cargo.lock') }}
     - name: Fetch Dependencies
       run: cargo fetch
     - name: Build
