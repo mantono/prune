@@ -26,11 +26,11 @@ jobs:
       id: cache-cargo-fetch
       with:
         key: ${{ runner.os }}-cargo-fetch-${{ hashFiles('Cargo.lock') }}
-        path:
-          - ~/.cargo/registry/index
-          - ~/.cargo/registry/cache
-          - ~/.cargo/git
-          - ./target
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git
+          ./target
         restore-keys: ${{ runner.os }}-cargo-fetch-${{ hashFiles('Cargo.lock') }}
     - name: Fetch Dependencies
       run: cargo fetch
