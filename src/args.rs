@@ -53,7 +53,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         })
         .value_name("duration")
         .help("Filter based on mod time")
-        .long_help("Only show files which modification time is older than this. For example 180s for 180 seconds, 45d for 45 days or 3y for 3 years.");
+        .long_help("Only show files which modification time is older than this. For example 180s for 180 seconds, 45d for 45 days or 3y for 3 years. ");
 
     let limit = Arg::with_name("limit")
         .takes_value(true)
