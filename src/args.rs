@@ -1,5 +1,7 @@
 use crate::args::Size::{Byte, Gigabyte, Kilobyte, Megabyte, Terabyte};
 use clap::{App, Arg, ArgMatches};
+use regex::Regex;
+use std::path::PathBuf;
 
 pub fn args<'a>() -> ArgMatches<'a> {
     let path = Arg::with_name("path")
@@ -8,6 +10,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .required(false)
         .multiple(true)
         .help("Paths to look for files in")
+        .validator(validate_path)
         .long_help("Select zero, one or several directories for which to look for files in. If no value is give, the application will default to current directory.");
 
     let depth = Arg::with_name("depth")
@@ -16,7 +19,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .long("depth")
         .required(false)
         .help("Depth in folder hierarchy")
-        .long_help("Descend and search for files in directories with a max depth of this value. A depth of 0 will only look for files at the first level. By default the depth is unlimited.");
+        .long_help("Descend and search for files or directories in directories with a max depth of this value. A depth of 0 will only look for files at the first level. By default the depth is unlimited.");
 
     let size = Arg::with_name("size")
         .default_value("100m")
@@ -27,7 +30,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .multiple(false)
         .required(false)
         .help("Minimum file size")
-        .long_help("Only show files which exceeds this file size. For example 400 is equivalent of 400 bytes, 20m is equivalent of 20 megabytes and 5g is equivalent of 5 gigabytes.");
+        .long_help("Only show files or directories which exceeds this size. For example 400 is equivalent of 400 bytes, 20m is equivalent of 20 megabytes and 5g is equivalent of 5 gigabytes.");
 
     let pattern = Arg::with_name("pattern")
         .takes_value(true)
@@ -53,7 +56,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         })
         .value_name("duration")
         .help("Filter based on mod time")
-        .long_help("Only show files which modification time is older than this. For example 180s for 180 seconds, 45d for 45 days or 3y for 3 years.");
+        .long_help("Only include files which modification time is older than this. For example 180s for 180 seconds, 45d for 45 days or 3y for 3 years.");
 
     let limit = Arg::with_name("limit")
         .takes_value(true)
@@ -61,6 +64,13 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .long("limit")
         .help("Limit how many files to list")
         .long_help("Only list the first N files found given by this limit. If no value is set for this option, the application will not stop until it has gone through all files in the directory and subdirectories.");
+
+    let dirs = Arg::with_name("dirs")
+        .takes_value(false)
+        .short("R")
+        .long("dirs")
+        .help("Search for directories")
+        .long_help("Search for directories instead of files");
 
     let verbosity = Arg::with_name("verbosity")
         .takes_value(true)
@@ -86,6 +96,13 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .help("Current filesystem only")
         .long_help("Only search for files in the same filesystem for the given path(s), or the current file system if no path is given.");
 
+    let plumbing = Arg::with_name("plumbing")
+        .takes_value(false)
+        .short("P")
+        .long("plumbing")
+        .help("Use plumbing mode")
+        .long_help("Use plumbing mode (as opposed to 'porcelain' mode) with an output that is more consistent and machine readable");
+
     let debug = Arg::with_name("debug")
         .takes_value(false)
         .short("D")
@@ -103,15 +120,29 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .arg(pattern)
         .arg(mod_time)
         .arg(limit)
+        .arg(dirs)
         .arg(verbosity)
         .arg(filesystem)
+        .arg(plumbing)
         .arg(debug)
         .get_matches();
 
     args
 }
 
-use regex::Regex;
+fn validate_path(path: String) -> Result<(), String> {
+    let path: PathBuf = match PathBuf::from(path.clone()).canonicalize() {
+        Ok(path) => path,
+        Err(e) => return Err(format!("Cannot read path {:?}: {}", path, e)),
+    };
+    if !path.exists() {
+        Err(format!("Path does not exist: {:?}", path))
+    } else if !path.is_dir() {
+        Err(format!("Path is not a directory: {:?}", path))
+    } else {
+        Ok(())
+    }
+}
 
 fn validate_size(size: String) -> Result<(), String> {
     let regex = Regex::new(r"^\d+[bkmgtBKMGT]?$").unwrap();
