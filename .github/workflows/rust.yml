@@ -28,6 +28,8 @@ jobs:
       run: cargo fetch
     - name: Build
       run: cargo build --all-features
+      env:
+        CARGO_INCREMENTAL: 1
     - name: Run tests
       run: cargo test
 
