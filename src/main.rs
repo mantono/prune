@@ -102,7 +102,7 @@ fn size_of(file: &PathBuf) -> (PathBuf, u64) {
 }
 
 fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
-    let walker = Walker::from(path)
+    let walker = Walker::from_with_capacity(path, 128)
         .expect("Unable to crate Walker from Path")
         .max_depth(cfg.max_depth);
 
