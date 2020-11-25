@@ -21,9 +21,9 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process;
-use std::time::Instant;
 
 fn main() {
+    let start = std::time::Instant::now();
     let cfg: Config = Config::from_args(args::args());
     setup_logging(cfg.verbosity_level);
     log::debug!("Config: {:?}", cfg);
@@ -37,10 +37,15 @@ fn main() {
         Mode::File => walk_files(&cfg),
         Mode::Dir => walk_dirs(&cfg),
     }
+
+    let end = std::time::Instant::now();
+    log::debug!(
+        "Elapsed execution time: {} ms",
+        end.duration_since(start).as_millis()
+    )
 }
 
 fn walk_files(cfg: &Config) {
-    let start = Instant::now();
     let files: Vec<FsEntity> = cfg
         .paths
         .iter()
@@ -54,8 +59,6 @@ fn walk_files(cfg: &Config) {
         .collect();
 
     let (found, size) = summarize(files);
-    let end = Instant::now();
-    println!("Elapsed time: {}", end.duration_since(start).as_millis());
 
     print_summary("files", found, size, cfg);
 }
