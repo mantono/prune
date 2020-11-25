@@ -21,7 +21,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
@@ -45,7 +45,7 @@ fn walk_files(cfg: &Config) {
         .paths
         .iter()
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
-        .filter_map(|f: PathBuf| FsEntity::from(f).ok())
+        .filter_map(|f: PathBuf| FsEntity::from_path_buf(f).ok())
         .filter(|f: &FsEntity| filter_size(f, cfg.min_size))
         .filter(|f: &FsEntity| filter_name(f, &cfg.pattern))
         .filter(|f: &FsEntity| filter_mod_time(f, &cfg.max_age))
@@ -76,7 +76,7 @@ fn walk_dirs(cfg: &Config) {
     cfg.paths
         .iter()
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
-        .filter_map(|f: PathBuf| FsEntity::from(f).ok())
+        .filter_map(|f: PathBuf| FsEntity::from_path_buf(f).ok())
         .filter(|f: &FsEntity| filter_mod_time(f, &cfg.max_age))
         .filter(|f: &FsEntity| filter_name(f, &cfg.pattern))
         .map(|f: FsEntity| size_of(&f))

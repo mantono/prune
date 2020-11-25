@@ -16,16 +16,7 @@ pub fn filter_size(file: &FsEntity, min_size: u64) -> bool {
 pub fn filter_name(path: &FsEntity, pattern: &Option<Regex>) -> bool {
     match pattern {
         None => true,
-        Some(regex) => {
-            let file_name: String = match path.file_name() {
-                Some(f) => f,
-                None => {
-                    log::error!("No filename for file: {:?}", path);
-                    return false;
-                }
-            };
-            regex.is_match(&file_name)
-        }
+        Some(regex) => path.matches(regex),
     }
 }
 
