@@ -1,60 +1,40 @@
+use crate::fs::FsEntity;
 use regex::Regex;
-use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
-pub fn summarize(files: Vec<PathBuf>) -> (u64, u64) {
+pub fn summarize(files: Vec<FsEntity>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
-    let size: u64 = files.iter().map(|f| f.metadata().unwrap().len()).sum();
+    let size: u64 = files.iter().map(|f| f.len()).sum();
 
     (found, size)
 }
 
-pub fn filter_size(file: &PathBuf, min_size: u64) -> bool {
-    match file.metadata() {
-        Ok(meta) => meta.len() >= min_size,
-        Err(e) => {
-            log::warn!("{}: {:?}", e, file);
-            false
-        }
-    }
+pub fn filter_size(file: &FsEntity, min_size: u64) -> bool {
+    file.len() >= min_size
 }
 
-pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
+pub fn filter_name(path: &FsEntity, pattern: &Option<Regex>) -> bool {
     match pattern {
         None => true,
         Some(regex) => {
-            let file_name: &str = match path.file_name() {
-                Some(f) => match f.to_str() {
-                    Some(f_str) => f_str,
-                    None => {
-                        log::error!("Unable to parse filename for: {:?}", path);
-                        return false;
-                    }
-                },
+            let file_name: String = match path.file_name() {
+                Some(f) => f,
                 None => {
                     log::error!("No filename for file: {:?}", path);
                     return false;
                 }
             };
-            regex.is_match(file_name)
+            regex.is_match(&file_name)
         }
     }
 }
 
-pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
+pub fn filter_mod_time(path: &FsEntity, max_age: &Option<Duration>) -> bool {
     let max_age: &Duration = match max_age {
         None => return true,
         Some(duration) => duration,
     };
-    let metadata = match path.metadata() {
-        Err(_) => return false,
-        Ok(m) => m,
-    };
-    let mod_time: SystemTime = match metadata.modified() {
-        Ok(m) => m,
-        Err(_) => return false,
-    };
-
+    let mod_time: SystemTime = path.last_modified();
     let now = SystemTime::now();
     if mod_time > now {
         log::warn!(

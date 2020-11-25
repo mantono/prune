@@ -5,6 +5,7 @@ mod args;
 mod cfg;
 mod dbg;
 mod find;
+mod fs;
 mod logger;
 mod print;
 
@@ -12,6 +13,7 @@ use crate::cfg::Config;
 use crate::cfg::Mode;
 use crate::dbg::dbg_info;
 use crate::find::{filter_mod_time, filter_name, filter_size, summarize};
+use crate::fs::FsEntity;
 use crate::logger::setup_logging;
 use crate::print::{print_dir, print_file, print_summary};
 use fwalker::Walker;
@@ -19,6 +21,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process;
+use std::time::{Duration, Instant};
 
 fn main() {
     let cfg: Config = Config::from_args(args::args());
@@ -37,33 +40,47 @@ fn main() {
 }
 
 fn walk_files(cfg: &Config) {
-    let files: Vec<PathBuf> = cfg
+    let start = Instant::now();
+    let files: Vec<FsEntity> = cfg
         .paths
         .iter()
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
-        .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
-        .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
-        .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
+        .filter_map(|f: PathBuf| FsEntity::from(f).ok())
+        .filter(|f: &FsEntity| filter_size(f, cfg.min_size))
+        .filter(|f: &FsEntity| filter_name(f, &cfg.pattern))
+        .filter(|f: &FsEntity| filter_mod_time(f, &cfg.max_age))
         .take(cfg.limit)
         .inspect(|f| print_file(f, cfg))
         .collect();
 
     let (found, size) = summarize(files);
+    let end = Instant::now();
+    println!("Elapsed time: {}", end.duration_since(start).as_millis());
 
     print_summary("files", found, size, cfg);
 }
 
 fn walk_dirs(cfg: &Config) {
-    let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
-    let root: &PathBuf = cfg.paths.iter().sorted().collect_vec().first().unwrap();
+    let mut acc_size: HashMap<FsEntity, u64> = HashMap::new();
+    let root: String = cfg
+        .paths
+        .iter()
+        .sorted()
+        .collect_vec()
+        .first()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
 
     cfg.paths
         .iter()
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
-        .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
-        .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
-        .map(|f: PathBuf| size_of(&f))
-        .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
+        .filter_map(|f: PathBuf| FsEntity::from(f).ok())
+        .filter(|f: &FsEntity| filter_mod_time(f, &cfg.max_age))
+        .filter(|f: &FsEntity| filter_name(f, &cfg.pattern))
+        .map(|f: FsEntity| size_of(&f))
+        .for_each(|(dir, size)| update_size(&mut acc_size, dir, &root, size));
 
     let acc_size: Vec<u64> = acc_size
         .iter()
@@ -80,24 +97,23 @@ fn walk_dirs(cfg: &Config) {
     print_summary("directories", found, size, cfg);
 }
 
-fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathBuf, size: u64) {
+fn update_size(acc_size: &mut HashMap<FsEntity, u64>, path: FsEntity, root: &String, size: u64) {
+    let fs_path: String = path.path().to_string();
     let cur_size: u64 = *acc_size.get(&path).unwrap_or(&0u64);
     let new_size = cur_size + size;
-    acc_size.insert(path.clone(), new_size);
-    if path == *root {
+    let parent: Option<FsEntity> = path.parent();
+    acc_size.insert(path, new_size);
+    if fs_path == *root {
         return;
     }
-    if let Some(parent) = path.parent() {
-        update_size(acc_size, PathBuf::from(parent), root, size)
+    if let Some(parent) = parent {
+        update_size(acc_size, parent, root, size)
     }
 }
 
-fn size_of(file: &PathBuf) -> (PathBuf, u64) {
-    let size: u64 = match file.metadata() {
-        Ok(metadata) => metadata.len(),
-        Err(_) => 0,
-    };
-    let parent: PathBuf = file.parent().unwrap().to_path_buf();
+fn size_of(file: &FsEntity) -> (FsEntity, u64) {
+    let size: u64 = file.len();
+    let parent: FsEntity = file.parent().unwrap();
     (parent, size)
 }
 
