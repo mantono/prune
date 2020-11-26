@@ -119,7 +119,7 @@ mod tests {
     fn test_create_fs_entity_dir() {
         let entity: Result<FsEntity, std::io::Error> = FsEntity::from("test_dirs");
         let entity: FsEntity = entity.unwrap();
-        assert_eq!(0, entity.len());
+        assert_eq!(4096, entity.len());
     }
 
     #[test]

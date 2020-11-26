@@ -52,7 +52,10 @@ pub fn filter_mod_time(path: &FsEntity, max_age: &Option<Duration>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::find::{filter_name, filter_size, summarize};
+    use crate::{
+        find::{filter_name, filter_size, summarize},
+        fs::FsEntity,
+    };
     use fwalker::Walker;
     use regex::Regex;
     use std::path::PathBuf;
@@ -60,20 +63,13 @@ mod tests {
 
     const TEST_DIR: &str = "test_dirs";
 
-    #[test]
-    fn test_stop_at_one_found_file() {
-        let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = Walker::from(dir).unwrap().take(1).collect();
-        let result: (u64, u64) = summarize(files);
-        assert_eq!(1, result.0);
-    }
-
     #[cfg(unix)]
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = Walker::from(dir)
+        let files: Vec<FsEntity> = Walker::from(dir)
             .unwrap()
+            .filter_map(|f: PathBuf| FsEntity::from_path_buf(f).ok())
             .filter(|f| filter_size(f, 100))
             .collect();
 
@@ -86,8 +82,9 @@ mod tests {
     fn test_filter_by_file_pattern() {
         let dir = PathBuf::from(TEST_DIR);
         let pattern: Option<Regex> = Some(Regex::from_str("file[01]$").unwrap());
-        let files: Vec<PathBuf> = Walker::from(dir)
+        let files: Vec<FsEntity> = Walker::from(dir)
             .unwrap()
+            .filter_map(|f: PathBuf| FsEntity::from_path_buf(f).ok())
             .filter(|f| filter_name(f, &pattern))
             .collect();
 
@@ -97,6 +94,7 @@ mod tests {
             files
                 .first()
                 .unwrap()
+                .to_path_buf()
                 .file_name()
                 .unwrap()
                 .to_str()
@@ -104,7 +102,14 @@ mod tests {
         );
         assert_eq!(
             "file1",
-            files.last().unwrap().file_name().unwrap().to_str().unwrap()
+            files
+                .last()
+                .unwrap()
+                .to_path_buf()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
         );
     }
 }
