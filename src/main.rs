@@ -101,7 +101,10 @@ fn walk_dirs(cfg: &Config) {
 }
 
 fn update_size(acc_size: &mut HashMap<FsEntity, u64>, path: FsEntity, root: &String, size: u64) {
-    let fs_path: String = path.path().to_string();
+    let fs_path: String = match path.path() {
+        Some(s) => s.to_string(),
+        None => return,
+    };
     let cur_size: u64 = *acc_size.get(&path).unwrap_or(&0u64);
     let new_size = cur_size + size;
     let parent: Option<FsEntity> = path.parent();

@@ -56,8 +56,8 @@ impl FsEntity {
         self.mod_time
     }
 
-    pub fn path(&self) -> &str {
-        self.path.to_str().expect("Failed to convert path to &str")
+    pub fn path(&self) -> Option<&str> {
+        self.path.to_str()
     }
 
     pub fn parent(&self) -> Option<FsEntity> {

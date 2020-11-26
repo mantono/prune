@@ -27,8 +27,10 @@ pub fn print_dir(dir: &FsEntity, size: u64, cfg: &Config) {
 }
 
 fn print_plumbing(dir: &FsEntity, size: u64) {
-    let dir = dir.path();
-    println!("{}, {}", size, dir);
+    match dir.path() {
+        Some(d) => println!("{}, {}", size, d),
+        None => log::warn!("Unable to print name for {:?}", dir),
+    }
 }
 
 pub fn print_summary(kind: &str, found: u64, size: u64, cfg: &Config) {
