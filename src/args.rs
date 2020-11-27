@@ -18,6 +18,7 @@ pub fn args<'a>() -> ArgMatches<'a> {
         .short("d")
         .long("depth")
         .required(false)
+        .validator(validate_is_digits)
         .help("Depth in folder hierarchy")
         .long_help("Descend and search for files or directories in directories with a max depth of this value. A depth of 0 will only look for files at the first level. By default the depth is unlimited.");
 
@@ -60,8 +61,10 @@ pub fn args<'a>() -> ArgMatches<'a> {
 
     let limit = Arg::with_name("limit")
         .takes_value(true)
+        .required(false)
         .short("l")
         .long("limit")
+        .validator(validate_is_digits)
         .help("Limit how many files to list")
         .long_help("Only list the first N files found given by this limit. If no value is set for this option, the application will not stop until it has gone through all files in the directory and subdirectories.");
 
@@ -151,6 +154,14 @@ fn validate_size(size: String) -> Result<(), String> {
     } else {
         let error: String = format!("Input is not a valid size: '{}'", size);
         Err(error)
+    }
+}
+
+fn validate_is_digits(input: String) -> Result<(), String> {
+    let regex = Regex::new(r"^\d+").unwrap();
+    match regex.find(&input) {
+        Some(_) => Ok(()),
+        None => Err(format!("Input '{}' is not a number", input)),
     }
 }
 

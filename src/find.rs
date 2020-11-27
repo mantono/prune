@@ -1,60 +1,31 @@
+use crate::fs::FsEntity;
 use regex::Regex;
-use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
-pub fn summarize(files: Vec<PathBuf>) -> (u64, u64) {
+pub fn summarize(files: Vec<FsEntity>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
-    let size: u64 = files.iter().map(|f| f.metadata().unwrap().len()).sum();
+    let size: u64 = files.iter().map(|f| f.len()).sum();
 
     (found, size)
 }
 
-pub fn filter_size(file: &PathBuf, min_size: u64) -> bool {
-    match file.metadata() {
-        Ok(meta) => meta.len() >= min_size,
-        Err(e) => {
-            log::warn!("{}: {:?}", e, file);
-            false
-        }
-    }
+pub fn filter_size(file: &FsEntity, min_size: u64) -> bool {
+    file.len() >= min_size
 }
 
-pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
+pub fn filter_name(path: &FsEntity, pattern: &Option<Regex>) -> bool {
     match pattern {
         None => true,
-        Some(regex) => {
-            let file_name: &str = match path.file_name() {
-                Some(f) => match f.to_str() {
-                    Some(f_str) => f_str,
-                    None => {
-                        log::error!("Unable to parse filename for: {:?}", path);
-                        return false;
-                    }
-                },
-                None => {
-                    log::error!("No filename for file: {:?}", path);
-                    return false;
-                }
-            };
-            regex.is_match(file_name)
-        }
+        Some(regex) => path.matches(regex),
     }
 }
 
-pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
+pub fn filter_mod_time(path: &FsEntity, max_age: &Option<Duration>) -> bool {
     let max_age: &Duration = match max_age {
         None => return true,
         Some(duration) => duration,
     };
-    let metadata = match path.metadata() {
-        Err(_) => return false,
-        Ok(m) => m,
-    };
-    let mod_time: SystemTime = match metadata.modified() {
-        Ok(m) => m,
-        Err(_) => return false,
-    };
-
+    let mod_time: SystemTime = path.last_modified();
     let now = SystemTime::now();
     if mod_time > now {
         log::warn!(
@@ -81,7 +52,10 @@ pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::find::{filter_name, filter_size, summarize};
+    use crate::{
+        find::{filter_name, filter_size, summarize},
+        fs::FsEntity,
+    };
     use fwalker::Walker;
     use regex::Regex;
     use std::path::PathBuf;
@@ -89,20 +63,13 @@ mod tests {
 
     const TEST_DIR: &str = "test_dirs";
 
-    #[test]
-    fn test_stop_at_one_found_file() {
-        let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = Walker::from(dir).unwrap().take(1).collect();
-        let result: (u64, u64) = summarize(files);
-        assert_eq!(1, result.0);
-    }
-
     #[cfg(unix)]
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = Walker::from(dir)
+        let files: Vec<FsEntity> = Walker::from(dir)
             .unwrap()
+            .filter_map(|f: PathBuf| FsEntity::from_path_buf(f).ok())
             .filter(|f| filter_size(f, 100))
             .collect();
 
@@ -115,8 +82,9 @@ mod tests {
     fn test_filter_by_file_pattern() {
         let dir = PathBuf::from(TEST_DIR);
         let pattern: Option<Regex> = Some(Regex::from_str("file[01]$").unwrap());
-        let files: Vec<PathBuf> = Walker::from(dir)
+        let files: Vec<FsEntity> = Walker::from(dir)
             .unwrap()
+            .filter_map(|f: PathBuf| FsEntity::from_path_buf(f).ok())
             .filter(|f| filter_name(f, &pattern))
             .collect();
 
@@ -126,6 +94,7 @@ mod tests {
             files
                 .first()
                 .unwrap()
+                .to_path_buf()
                 .file_name()
                 .unwrap()
                 .to_str()
@@ -133,7 +102,14 @@ mod tests {
         );
         assert_eq!(
             "file1",
-            files.last().unwrap().file_name().unwrap().to_str().unwrap()
+            files
+                .last()
+                .unwrap()
+                .to_path_buf()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
         );
     }
 }
