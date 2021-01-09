@@ -11,7 +11,7 @@ humansize = "1.1"
 regex = "1.3"
 log = "0.4"
 env_logger = "0.7"
-fwalker = "0.3.2"
+fwalker = "0.3.3"
 itertools = "0.9"
 
 [build-dependencies]
