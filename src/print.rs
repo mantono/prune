@@ -1,7 +1,7 @@
 use crate::cfg::Config;
 use humansize::{file_size_opts as options, FileSize};
 use itertools::Itertools;
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 pub fn print_file(file: &PathBuf, cfg: &Config) {
     let size: u64 = file.metadata().unwrap().len();
@@ -32,19 +32,22 @@ fn print_plumbing(dir: &PathBuf, size: u64) {
     println!("{}, {}", size, dir);
 }
 
-pub fn print_summary(kind: &str, found: u64, size: u64, cfg: &Config) {
+pub fn print_summary(kind: &str, found: u64, size: u64, cfg: &Config, time: &Duration) {
     if cfg.plumbing_mode {
         print_summary_plumbing(found, size)
     } else {
-        print_summary_porcelain(kind, found, size)
+        print_summary_porcelain(kind, found, size, time)
     }
 }
 
-fn print_summary_porcelain(kind: &str, found: u64, size: u64) {
+fn print_summary_porcelain(kind: &str, found: u64, size: u64, time: &Duration) {
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
     println!(
-        "Found {} {} with a total size of {}",
-        found, kind, human_size
+        "Found {} {} with a total size of {} in {} milliseconds",
+        found,
+        kind,
+        human_size,
+        time.as_millis()
     );
 }
 
