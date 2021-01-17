@@ -22,9 +22,9 @@ use crate::structopt::StructOpt;
 use cfg::Mode;
 use fwalker::Walker;
 use itertools::Itertools;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::process;
-use std::{collections::HashMap, time::SystemTime};
-use std::{path::PathBuf, time::Duration};
 
 fn main() {
     let cfg = Config::from_args();
@@ -43,7 +43,6 @@ fn main() {
 }
 
 fn walk_files(cfg: &Config) {
-    let start = SystemTime::now();
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let files: Vec<PathBuf> = cfg
         .paths
@@ -58,13 +57,10 @@ fn walk_files(cfg: &Config) {
 
     let (found, size) = summarize(files);
 
-    let end = SystemTime::now();
-    let time: Duration = end.duration_since(start).expect("Unexpeted time shift");
-    print_summary("files", found, size, cfg, &time);
+    print_summary("files", found, size, cfg);
 }
 
 fn walk_dirs(cfg: &Config) {
-    let start = SystemTime::now();
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
     let root: &PathBuf = cfg.paths.iter().sorted().collect_vec().first().unwrap();
 
@@ -88,10 +84,8 @@ fn walk_dirs(cfg: &Config) {
 
     let size: u64 = *acc_size.iter().max().unwrap_or(&0);
     let found: u64 = acc_size.len() as u64;
-    let end = SystemTime::now();
-    let time: Duration = end.duration_since(start).expect("Unexpeted time shift");
 
-    print_summary("directories", found, size, cfg, &time);
+    print_summary("directories", found, size, cfg);
 }
 
 fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathBuf, size: u64) {

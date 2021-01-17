@@ -194,7 +194,9 @@ dependencies = [
 
 [[package]]
 name = "fwalker"
-version = "0.3.4"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d056f0fb89c2a08c165ecb4bbd6bab195d812ba6c5226113dce25e46df18abcf"
 dependencies = [
  "log",
  "sysinfo",
