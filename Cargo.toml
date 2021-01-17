@@ -15,7 +15,6 @@ log = "0.4"
 env_logger = "0.7"
 fwalker = "0.4.0"
 itertools = "0.9"
-termcolor = "1.1"
 
 [build-dependencies]
 built = { version = "0.4", features = ["git2"] }

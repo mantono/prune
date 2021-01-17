@@ -393,7 +393,6 @@ dependencies = [
  "log",
  "regex",
  "structopt",
- "termcolor",
 ]
 
 [[package]]
