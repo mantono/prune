@@ -4,7 +4,7 @@ use std::time::Duration;
 use std::{path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 
-#[cfg(not(target_os))]
+#[cfg(not(target_os = "windows"))]
 static APP_NAME: &str = "prn";
 #[cfg(target_os = "windows")]
 static APP_NAME: &str = "prune";
