@@ -2,6 +2,7 @@
 name = "prn"
 version = "0.1.0"
 authors = ["Anton Österberg <anton@42x.io>"]
+description = "Command line tool for finding large files"
 edition = "2018"
 build = "build.rs"
 
