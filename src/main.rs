@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate clap;
 extern crate humansize;
 extern crate lazy_static;
 extern crate structopt;

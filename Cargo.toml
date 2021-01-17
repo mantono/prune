@@ -7,7 +7,6 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-clap = "2.33"
 structopt = "0.3.21"
 humansize = "1.1"
 regex = "1.3"

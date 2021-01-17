@@ -385,7 +385,6 @@ name = "prn"
 version = "0.1.0"
 dependencies = [
  "built",
- "clap",
  "env_logger",
  "fwalker",
  "humansize",
