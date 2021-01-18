@@ -1,3 +1,5 @@
+use structopt::clap::crate_version;
+
 pub fn dbg_info() -> String {
     format!(
         "Crate version {}.\nBuilt from commit {} by {} for target {} with profile '{}' and features = {:?}.",

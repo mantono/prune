@@ -44,7 +44,7 @@ fn print_summary_porcelain(kind: &str, found: u64, size: u64) {
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
     println!(
         "Found {} {} with a total size of {}",
-        found, kind, human_size
+        found, kind, human_size,
     );
 }
 

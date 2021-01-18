@@ -1,19 +1,23 @@
-#[macro_use]
-extern crate clap;
 extern crate humansize;
-mod args;
+extern crate lazy_static;
+extern crate structopt;
+
 mod cfg;
 mod dbg;
+mod duration;
 mod find;
 mod logger;
+mod parse;
 mod print;
+mod size;
 
 use crate::cfg::Config;
-use crate::cfg::Mode;
 use crate::dbg::dbg_info;
 use crate::find::{filter_mod_time, filter_name, filter_size, summarize};
 use crate::logger::setup_logging;
 use crate::print::{print_dir, print_file, print_summary};
+use crate::structopt::StructOpt;
+use cfg::Mode;
 use fwalker::Walker;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -21,7 +25,7 @@ use std::path::PathBuf;
 use std::process;
 
 fn main() {
-    let cfg: Config = Config::from_args(args::args());
+    let cfg = Config::from_args();
     setup_logging(cfg.verbosity_level);
     log::debug!("Config: {:?}", cfg);
 
@@ -30,21 +34,22 @@ fn main() {
         process::exit(0);
     }
 
-    match cfg.mode {
+    match cfg.mode() {
         Mode::File => walk_files(&cfg),
         Mode::Dir => walk_dirs(&cfg),
     }
 }
 
 fn walk_files(cfg: &Config) {
+    let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let files: Vec<PathBuf> = cfg
         .paths
         .iter()
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
-        .filter(|f: &PathBuf| filter_size(f, cfg.min_size))
+        .filter(|f: &PathBuf| filter_size(f, cfg.min_size_bytes()))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
-        .take(cfg.limit)
+        .take(limit)
         .inspect(|f| print_file(f, cfg))
         .collect();
 
@@ -65,10 +70,11 @@ fn walk_dirs(cfg: &Config) {
         .map(|f: PathBuf| size_of(&f))
         .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
+    let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let acc_size: Vec<u64> = acc_size
         .iter()
-        .filter(|(_, size)| **size >= cfg.min_size)
-        .take(cfg.limit)
+        .filter(|(_, size)| **size >= cfg.min_size_bytes())
+        .take(limit)
         .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
         .inspect(|(path, size)| print_dir(path, **size, cfg))
         .map(|(_, size)| *size)
@@ -104,13 +110,9 @@ fn size_of(file: &PathBuf) -> (PathBuf, u64) {
 fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
     let walker = Walker::from_with_capacity(path, 128)
         .expect("Unable to crate Walker from Path")
-        .max_depth(cfg.max_depth);
+        .max_depth(cfg.depth)
+        .only_local_fs(cfg.only_local_fs);
 
-    let walker: Walker = if cfg.only_local_fs {
-        walker.only_local_fs()
-    } else {
-        walker
-    };
     log::debug!("walker: {:?}", walker);
     walker
 }
