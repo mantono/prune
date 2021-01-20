@@ -81,13 +81,18 @@ pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::find::{filter_name, filter_size, summarize};
+    use crate::{
+        cfg::Config,
+        find::{filter_name, filter_size, summarize},
+        walk_files,
+    };
     use fwalker::Walker;
     use regex::Regex;
     use std::path::PathBuf;
     use std::str::FromStr;
 
     const TEST_DIR: &str = "test_dirs";
+    const PROC: &str = "/proc";
 
     #[test]
     fn test_stop_at_one_found_file() {
@@ -109,6 +114,14 @@ mod tests {
         let result: (u64, u64) = summarize(files);
         assert_eq!(1, result.0);
         assert_eq!(100, result.1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_filter_out_proc() {
+        let cfg = Config::default().with_path(PROC);
+        let (found, _) = walk_files(&cfg);
+        assert_eq!(0, found);
     }
 
     #[test]
