@@ -68,6 +68,7 @@ fn walk_dirs(cfg: &Config) -> (u64, u64) {
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
+        .filter(|f: &PathBuf| !f.starts_with("/proc"))
         .map(|f: PathBuf| size_of(&f))
         .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
