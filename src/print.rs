@@ -1,4 +1,4 @@
-use crate::cfg::Config;
+use crate::cfg::{Config, Mode};
 use humansize::{file_size_opts as options, FileSize};
 use itertools::Itertools;
 use std::path::PathBuf;
@@ -32,7 +32,7 @@ fn print_plumbing(dir: &PathBuf, size: u64) {
     println!("{}, {}", size, dir);
 }
 
-pub fn print_summary(kind: &str, found: u64, size: u64, cfg: &Config) {
+pub fn print_summary(kind: Mode, found: u64, size: u64, cfg: &Config) {
     if cfg.plumbing_mode {
         print_summary_plumbing(found, size)
     } else {
@@ -40,7 +40,11 @@ pub fn print_summary(kind: &str, found: u64, size: u64, cfg: &Config) {
     }
 }
 
-fn print_summary_porcelain(kind: &str, found: u64, size: u64) {
+fn print_summary_porcelain(mode: Mode, found: u64, size: u64) {
+    let kind: &str = match mode {
+        Mode::File => "files",
+        Mode::Dir => "directories",
+    };
     let human_size = size.file_size(options::CONVENTIONAL).unwrap();
     println!(
         "Found {} {} with a total size of {}",

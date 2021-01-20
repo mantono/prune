@@ -34,13 +34,15 @@ fn main() {
         process::exit(0);
     }
 
-    match cfg.mode() {
+    let (found, size) = match cfg.mode() {
         Mode::File => walk_files(&cfg),
         Mode::Dir => walk_dirs(&cfg),
-    }
+    };
+
+    print_summary(cfg.mode(), found, size, &cfg);
 }
 
-fn walk_files(cfg: &Config) {
+fn walk_files(cfg: &Config) -> (u64, u64) {
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let files: Vec<PathBuf> = cfg
         .paths
@@ -48,17 +50,16 @@ fn walk_files(cfg: &Config) {
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size_bytes()))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
+        .filter(|f: &PathBuf| !f.starts_with("/proc"))
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
         .take(limit)
         .inspect(|f| print_file(f, cfg))
         .collect();
 
-    let (found, size) = summarize(files);
-
-    print_summary("files", found, size, cfg);
+    summarize(files)
 }
 
-fn walk_dirs(cfg: &Config) {
+fn walk_dirs(cfg: &Config) -> (u64, u64) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
     let root: &PathBuf = cfg.paths.iter().sorted().collect_vec().first().unwrap();
 
@@ -83,7 +84,7 @@ fn walk_dirs(cfg: &Config) {
     let size: u64 = *acc_size.iter().max().unwrap_or(&0);
     let found: u64 = acc_size.len() as u64;
 
-    print_summary("directories", found, size, cfg);
+    (found, size)
 }
 
 fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathBuf, size: u64) {

@@ -109,6 +109,16 @@ impl FromStr for Verbosity {
 }
 
 impl Config {
+    pub fn with_path<T: Into<PathBuf>>(mut self, path: T) -> Self {
+        self.paths.push(path.into());
+        self
+    }
+
+    pub fn with_limit(mut self, limit: Option<usize>) -> Self {
+        self.limit = limit;
+        self
+    }
+
     pub fn min_size_bytes(&self) -> u64 {
         self.min_size.as_bytes()
     }
@@ -118,6 +128,24 @@ impl Config {
             Mode::Dir
         } else {
             Mode::File
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            paths: Vec::with_capacity(1),
+            print_dbg: false,
+            dirs: false,
+            only_local_fs: true,
+            plumbing_mode: true,
+            depth: None,
+            limit: None,
+            max_age: None,
+            pattern: None,
+            verbosity_level: 0,
+            min_size: Size::Megabyte(100),
         }
     }
 }
