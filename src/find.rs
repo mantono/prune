@@ -116,7 +116,7 @@ mod tests {
         assert_eq!(100, result.1);
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn test_filter_out_proc() {
         let cfg = Config::default().with_path(PROC);
