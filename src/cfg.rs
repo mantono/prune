@@ -17,7 +17,7 @@ pub struct Config {
     /// Select zero, one or several directories for which to look for files in. If no value is
     /// given, the application will default to current directory
     #[structopt(parse(from_os_str), default_value = ".")]
-    pub paths: Vec<PathBuf>,
+    paths: Vec<PathBuf>,
 
     /// Print debug information
     ///
@@ -59,7 +59,7 @@ pub struct Config {
     /// the application will not stop until it has gone through all files in the directory and
     /// subdirectories.
     #[structopt(short, long)]
-    pub limit: Option<usize>,
+    limit: Option<usize>,
 
     /// Filter based on mod time
     ///
@@ -119,8 +119,32 @@ impl Config {
         self
     }
 
+    pub fn with_mode(mut self, mode: &Mode) -> Self {
+        match mode {
+            Mode::File => self.dirs = false,
+            Mode::Dir => self.dirs = true,
+        };
+        self
+    }
+
+    pub fn with_min_size(mut self, size: Size) -> Self {
+        self.min_size = size;
+        self
+    }
+
     pub fn min_size_bytes(&self) -> u64 {
         self.min_size.as_bytes()
+    }
+
+    pub fn abs_paths(&self) -> Vec<PathBuf> {
+        self.paths
+            .iter()
+            .filter_map(|p| p.canonicalize().ok())
+            .collect()
+    }
+
+    pub fn limit(&self) -> usize {
+        self.limit.unwrap_or(usize::MAX)
     }
 
     pub fn mode(&self) -> Mode {

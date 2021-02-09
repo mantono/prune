@@ -43,16 +43,15 @@ fn main() {
 }
 
 fn walk_files(cfg: &Config) -> (u64, u64) {
-    let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let files: Vec<PathBuf> = cfg
-        .paths
+        .abs_paths()
         .iter()
         .flat_map(|path: &PathBuf| create_walker(&cfg, path))
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size_bytes()))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .filter(|f: &PathBuf| !f.starts_with("/proc"))
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
-        .take(limit)
+        .take(cfg.limit())
         .inspect(|f| print_file(f, cfg))
         .collect();
 
@@ -61,22 +60,20 @@ fn walk_files(cfg: &Config) -> (u64, u64) {
 
 fn walk_dirs(cfg: &Config) -> (u64, u64) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
-    let root: &PathBuf = cfg.paths.iter().sorted().collect_vec().first().unwrap();
 
-    cfg.paths
-        .iter()
-        .flat_map(|path: &PathBuf| create_walker(&cfg, path))
-        .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
-        .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
-        .filter(|f: &PathBuf| !f.starts_with("/proc"))
-        .map(|f: PathBuf| size_of(&f))
-        .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
+    for root in cfg.abs_paths() {
+        create_walker(&cfg, &root)
+            .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
+            .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
+            .filter(|f: &PathBuf| !f.starts_with("/proc"))
+            .map(|f: PathBuf| size_of(&f))
+            .for_each(|(dir, size)| update_size(&mut acc_size, dir, &root, size));
+    }
 
-    let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let acc_size: Vec<u64> = acc_size
         .iter()
         .filter(|(_, size)| **size >= cfg.min_size_bytes())
-        .take(limit)
+        .take(cfg.limit())
         .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
         .inspect(|(path, size)| print_dir(path, **size, cfg))
         .map(|(_, size)| *size)
@@ -117,4 +114,28 @@ fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
 
     log::debug!("walker: {:?}", walker);
     walker
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::{
+        cfg::{Config, Mode},
+        create_walker,
+        size::Size,
+        walk_dirs,
+    };
+
+    #[test]
+    fn test_walk_dirs() {
+        let cfg = Config::default()
+            .with_mode(&Mode::Dir)
+            .with_min_size(Size::Byte(1))
+            .with_path("test_dirs");
+
+        let (found, size) = walk_dirs(&cfg);
+        assert_eq!(2, found);
+        assert_eq!(182, size);
+    }
 }
