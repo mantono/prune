@@ -1,4 +1,5 @@
 use crate::{duration::parse_duration, size::Size};
+use itertools::Itertools;
 use regex::Regex;
 use std::time::Duration;
 use std::{path::PathBuf, str::FromStr};
@@ -17,7 +18,7 @@ pub struct Config {
     /// Select zero, one or several directories for which to look for files in. If no value is
     /// given, the application will default to current directory
     #[structopt(parse(from_os_str), default_value = ".")]
-    pub paths: Vec<PathBuf>,
+    paths: Vec<PathBuf>,
 
     /// Print debug information
     ///
@@ -129,6 +130,22 @@ impl Config {
         } else {
             Mode::File
         }
+    }
+
+    pub fn paths(&self) -> Vec<PathBuf> {
+        self.paths
+            .clone()
+            .into_iter()
+            .sorted()
+            .filter(Config::filter)
+            .collect_vec()
+    }
+
+    fn filter(path: &PathBuf) -> bool {
+        if !path.exists() {
+            log::error!("Path does not exist: {:?}", path);
+        }
+        path.exists()
     }
 }
 

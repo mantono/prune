@@ -45,9 +45,10 @@ fn main() {
 fn walk_files(cfg: &Config) -> (u64, u64) {
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let files: Vec<PathBuf> = cfg
-        .paths
+        .paths()
         .iter()
-        .flat_map(|path: &PathBuf| create_walker(&cfg, path))
+        .filter_map(|path: &PathBuf| create_walker(&cfg, path).ok())
+        .flatten()
         .filter(|f: &PathBuf| filter_size(f, cfg.min_size_bytes()))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .filter(|f: &PathBuf| !f.starts_with("/proc"))
@@ -61,11 +62,13 @@ fn walk_files(cfg: &Config) -> (u64, u64) {
 
 fn walk_dirs(cfg: &Config) -> (u64, u64) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
-    let root: &PathBuf = cfg.paths.iter().sorted().collect_vec().first().unwrap();
+    let paths: Vec<PathBuf> = cfg.paths();
+    let root: &PathBuf = paths.first().unwrap();
 
-    cfg.paths
+    cfg.paths()
         .iter()
-        .flat_map(|path: &PathBuf| create_walker(&cfg, path))
+        .filter_map(|path: &PathBuf| create_walker(&cfg, path).ok())
+        .flatten()
         .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
         .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
         .filter(|f: &PathBuf| !f.starts_with("/proc"))
@@ -109,12 +112,11 @@ fn size_of(file: &PathBuf) -> (PathBuf, u64) {
     (parent, size)
 }
 
-fn create_walker(cfg: &Config, path: &PathBuf) -> Walker {
-    let walker = Walker::from_with_capacity(path, 128)
-        .expect("Unable to crate Walker from Path")
+fn create_walker(cfg: &Config, path: &PathBuf) -> Result<Walker, std::io::Error> {
+    let walker = Walker::from_with_capacity(path, 128)?
         .max_depth(cfg.depth)
         .only_local_fs(cfg.only_local_fs);
 
     log::debug!("walker: {:?}", walker);
-    walker
+    Ok(walker)
 }
