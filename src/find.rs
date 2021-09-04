@@ -139,6 +139,7 @@ mod tests {
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|f| filter_name(f, &pattern))
+            .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
             .collect();
 
         assert_eq!(2, files.len());
