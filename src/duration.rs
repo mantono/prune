@@ -20,7 +20,7 @@ pub fn parse_duration(input: &str) -> Result<Duration, &str> {
         'w' => amount * WEEK,
         'M' => ((amount as f64) * MONTH) as u64,
         'y' => ((amount as f64) * YEAR) as u64,
-        _ => panic!(format!("Invalid unit: {}", unit)),
+        _ => panic!("Invalid unit: {}", unit),
     };
     Ok(Duration::from_secs(seconds))
 }
