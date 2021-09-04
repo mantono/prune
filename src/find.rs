@@ -1,15 +1,15 @@
 use regex::Regex;
-use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use walkdir::DirEntry;
 
-pub fn summarize(files: Vec<PathBuf>) -> (u64, u64) {
+pub fn summarize(files: Vec<DirEntry>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
     let size: u64 = files.iter().map(|f| f.metadata().unwrap().len()).sum();
 
     (found, size)
 }
 
-pub fn filter_size(file: &PathBuf, min_size: u64) -> bool {
+pub fn filter_size(file: &DirEntry, min_size: u64) -> bool {
     match file.metadata() {
         Ok(meta) => meta.len() >= min_size,
         Err(e) => {
@@ -19,20 +19,20 @@ pub fn filter_size(file: &PathBuf, min_size: u64) -> bool {
     }
 }
 
-pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
+pub fn filter_name(entry: &DirEntry, pattern: &Option<Regex>) -> bool {
     match pattern {
         None => true,
         Some(regex) => {
-            let file_name: &str = match path.file_name() {
+            let file_name: &str = match entry.path().file_name() {
                 Some(f) => match f.to_str() {
                     Some(f_str) => f_str,
                     None => {
-                        log::error!("Unable to parse filename for: {:?}", path);
+                        log::error!("Unable to parse filename for: {:?}", entry);
                         return false;
                     }
                 },
                 None => {
-                    log::error!("No filename for file: {:?}", path);
+                    log::error!("No filename for file: {:?}", entry);
                     return false;
                 }
             };
@@ -41,12 +41,12 @@ pub fn filter_name(path: &PathBuf, pattern: &Option<Regex>) -> bool {
     }
 }
 
-pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
+pub fn filter_mod_time(entry: &DirEntry, max_age: &Option<Duration>) -> bool {
     let max_age: &Duration = match max_age {
         None => return true,
         Some(duration) => duration,
     };
-    let metadata = match path.metadata() {
+    let metadata = match entry.metadata() {
         Err(_) => return false,
         Ok(m) => m,
     };
@@ -59,7 +59,7 @@ pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
     if mod_time > now {
         log::warn!(
             "Found modification timestamp set in the future for {:?}: {:?}",
-            path,
+            entry,
             mod_time
         );
         return false;
@@ -70,7 +70,7 @@ pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
             log::error!(
                 "Cannot get duration since {:?} for {:?}: {}",
                 mod_time,
-                path,
+                entry,
                 e
             );
             return false;
@@ -83,13 +83,14 @@ pub fn filter_mod_time(path: &PathBuf, max_age: &Option<Duration>) -> bool {
 mod tests {
     use crate::{
         cfg::Config,
+        create_walker,
         find::{filter_name, filter_size, summarize},
         walk_files,
     };
-    use fwalker::Walker;
     use regex::Regex;
     use std::path::PathBuf;
     use std::str::FromStr;
+    use walkdir::DirEntry;
 
     const TEST_DIR: &str = "test_dirs";
     const PROC: &str = "/proc";
@@ -97,7 +98,11 @@ mod tests {
     #[test]
     fn test_stop_at_one_found_file() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = Walker::from(dir).unwrap().take(1).collect();
+        let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .take(1)
+            .collect();
         let result: (u64, u64) = summarize(files);
         assert_eq!(1, result.0);
     }
@@ -106,8 +111,10 @@ mod tests {
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<PathBuf> = Walker::from(dir)
-            .unwrap()
+        let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
             .filter(|f| filter_size(f, 100))
             .collect();
 
@@ -128,25 +135,17 @@ mod tests {
     fn test_filter_by_file_pattern() {
         let dir = PathBuf::from(TEST_DIR);
         let pattern: Option<Regex> = Some(Regex::from_str("file[01]$").unwrap());
-        let files: Vec<PathBuf> = Walker::from(dir)
-            .unwrap()
+        let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
             .filter(|f| filter_name(f, &pattern))
             .collect();
 
         assert_eq!(2, files.len());
-        assert_eq!(
-            "file0",
-            files
-                .first()
-                .unwrap()
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
+        assert_ne!(
+            "file2",
+            files.first().unwrap().file_name().to_str().unwrap()
         );
-        assert_eq!(
-            "file1",
-            files.last().unwrap().file_name().unwrap().to_str().unwrap()
-        );
+        assert_ne!("file2", files.last().unwrap().file_name().to_str().unwrap());
     }
 }
