@@ -18,11 +18,11 @@ use crate::logger::setup_logging;
 use crate::print::{print_dir, print_file, print_summary};
 use crate::structopt::StructOpt;
 use cfg::Mode;
-use fwalker::Walker;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
+use walkdir::{DirEntry, WalkDir};
 
 fn main() {
     let cfg = Config::from_args();
@@ -44,15 +44,17 @@ fn main() {
 
 fn walk_files(cfg: &Config) -> (u64, u64) {
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
-    let files: Vec<PathBuf> = cfg
+    let files: Vec<DirEntry> = cfg
         .paths()
         .iter()
-        .filter_map(|path: &PathBuf| create_walker(&cfg, path).ok())
+        .map(|path: &PathBuf| create_walker(cfg, path))
         .flatten()
-        .filter(|f: &PathBuf| filter_size(f, cfg.min_size_bytes()))
-        .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
-        .filter(|f: &PathBuf| !f.starts_with("/proc"))
-        .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
+        .filter_map(|e| e.ok())
+        .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
+        .filter(|f: &DirEntry| filter_size(f, cfg.min_size_bytes()))
+        .filter(|f: &DirEntry| filter_name(f, &cfg.pattern))
+        .filter(|f: &DirEntry| !in_proc(f))
+        .filter(|f: &DirEntry| filter_mod_time(f, &cfg.max_age))
         .take(limit)
         .inspect(|f| print_file(f, cfg))
         .collect();
@@ -60,19 +62,25 @@ fn walk_files(cfg: &Config) -> (u64, u64) {
     summarize(files)
 }
 
+fn in_proc(entry: &DirEntry) -> bool {
+    entry.path().starts_with("/proc")
+}
+
 fn walk_dirs(cfg: &Config) -> (u64, u64) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
     let paths: Vec<PathBuf> = cfg.paths();
-    let root: &PathBuf = paths.first().unwrap();
+    let root: &Path = paths.first().unwrap();
 
     cfg.paths()
         .iter()
-        .filter_map(|path: &PathBuf| create_walker(&cfg, path).ok())
+        .map(|path: &PathBuf| create_walker(cfg, path))
         .flatten()
-        .filter(|f: &PathBuf| filter_mod_time(f, &cfg.max_age))
-        .filter(|f: &PathBuf| filter_name(f, &cfg.pattern))
-        .filter(|f: &PathBuf| !f.starts_with("/proc"))
-        .map(|f: PathBuf| size_of(&f))
+        .filter_map(|e| e.ok())
+        .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
+        .filter(|f: &DirEntry| filter_mod_time(f, &cfg.max_age))
+        .filter(|f: &DirEntry| filter_name(f, &cfg.pattern))
+        .filter(|f: &DirEntry| !in_proc(f))
+        .map(|f: DirEntry| size_of(&f))
         .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
@@ -91,7 +99,7 @@ fn walk_dirs(cfg: &Config) -> (u64, u64) {
     (found, size)
 }
 
-fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathBuf, size: u64) {
+fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &Path, size: u64) {
     let cur_size: u64 = *acc_size.get(&path).unwrap_or(&0u64);
     let new_size = cur_size + size;
     acc_size.insert(path.clone(), new_size);
@@ -103,20 +111,21 @@ fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &PathB
     }
 }
 
-fn size_of(file: &PathBuf) -> (PathBuf, u64) {
-    let size: u64 = match file.metadata() {
+fn size_of(entry: &DirEntry) -> (PathBuf, u64) {
+    let size: u64 = match entry.metadata() {
         Ok(metadata) => metadata.len(),
         Err(_) => 0,
     };
-    let parent: PathBuf = file.parent().unwrap().to_path_buf();
+    let parent: PathBuf = entry.path().parent().unwrap().to_path_buf();
     (parent, size)
 }
 
-fn create_walker(cfg: &Config, path: &PathBuf) -> Result<Walker, std::io::Error> {
-    let walker = Walker::from_with_capacity(path, 128)?
-        .max_depth(cfg.depth)
-        .only_local_fs(cfg.only_local_fs);
+fn create_walker(cfg: &Config, path: &Path) -> WalkDir {
+    let walker = WalkDir::new(path)
+        .follow_links(false)
+        .max_depth(cfg.max_depth())
+        .same_file_system(cfg.only_local_fs);
 
-    log::debug!("walker: {:?}", walker);
-    Ok(walker)
+    log::debug!("walkdir: {:?}", walker);
+    walker
 }

@@ -1,9 +1,11 @@
 use crate::cfg::{Config, Mode};
 use humansize::{file_size_opts as options, FileSize};
 use itertools::Itertools;
-use std::path::PathBuf;
+use std::path::Path;
+use walkdir::DirEntry;
 
-pub fn print_file(file: &PathBuf, cfg: &Config) {
+pub fn print_file(entry: &DirEntry, cfg: &Config) {
+    let file: &Path = entry.path();
     let size: u64 = file.metadata().unwrap().len();
     if cfg.plumbing_mode {
         print_plumbing(file, size)
@@ -12,21 +14,21 @@ pub fn print_file(file: &PathBuf, cfg: &Config) {
     }
 }
 
-fn print_porcelain(file: &PathBuf, size: u64) {
+fn print_porcelain(file: &Path, size: u64) {
     let path: String = fmt_path(file, 0);
     let size = size.file_size(options::CONVENTIONAL).unwrap();
     println!("{:>10} │ {}", size, path);
 }
 
-pub fn print_dir(dir: &PathBuf, size: u64, cfg: &Config) {
+pub fn print_dir(dir: &Path, size: u64, cfg: &Config) {
     if cfg.plumbing_mode {
         print_plumbing(dir, size)
     } else {
-        print_porcelain(&dir, size)
+        print_porcelain(dir, size)
     }
 }
 
-fn print_plumbing(dir: &PathBuf, size: u64) {
+fn print_plumbing(dir: &Path, size: u64) {
     let dir = dir.canonicalize().unwrap();
     let dir = dir.as_os_str().to_str().unwrap();
     println!("{}, {}", size, dir);
@@ -57,7 +59,7 @@ fn print_summary_plumbing(found: u64, size: u64) {
     println!("{}, {}", size, found)
 }
 
-fn fmt_path(path: &PathBuf, root_level: usize) -> String {
+fn fmt_path(path: &Path, root_level: usize) -> String {
     let skip = if root_level == 0 {
         root_level
     } else {

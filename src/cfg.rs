@@ -52,7 +52,7 @@ pub struct Config {
     /// Descend and search for files or directories in directories with a max depth of this value.
     /// A depth of 0 will only look for files at the first level. By default the depth is unlimited.
     #[structopt(short = "d", long = "max-depth")]
-    pub depth: Option<u32>,
+    depth: Option<usize>,
 
     /// Limit how many files to list
     ///
@@ -101,7 +101,9 @@ impl FromStr for Verbosity {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n: u8 = s.parse().or(Err(format!("Unable to parse {} as u8", s)))?;
+        let n: u8 = s
+            .parse()
+            .map_err(|_| format!("Unable to parse {} as u8", s))?;
         match (0u8..=5u8).contains(&n) {
             true => Ok(Verbosity(n)),
             false => Err(format!("Value out of range (0 - 5): {}", n)),
@@ -122,6 +124,10 @@ impl Config {
 
     pub fn min_size_bytes(&self) -> u64 {
         self.min_size.as_bytes()
+    }
+
+    pub fn max_depth(&self) -> usize {
+        self.depth.unwrap_or(usize::MAX)
     }
 
     pub fn mode(&self) -> Mode {
