@@ -139,14 +139,13 @@ mod tests {
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|f| filter_name(f, &pattern))
-            .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
             .collect();
 
         assert_eq!(2, files.len());
-        assert_eq!(
-            "file0",
+        assert_ne!(
+            "file2",
             files.first().unwrap().file_name().to_str().unwrap()
         );
-        assert_eq!("file1", files.last().unwrap().file_name().to_str().unwrap());
+        assert_ne!("file2", files.last().unwrap().file_name().to_str().unwrap());
     }
 }
