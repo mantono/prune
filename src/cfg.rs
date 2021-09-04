@@ -1,9 +1,13 @@
+use crate::find::Filter;
 use crate::{duration::parse_duration, size::Size};
 use itertools::Itertools;
 use regex::Regex;
+use std::fs;
 use std::time::Duration;
+use std::time::SystemTime;
 use std::{path::PathBuf, str::FromStr};
 use structopt::StructOpt;
+use walkdir::DirEntry;
 
 #[cfg(not(target_os = "windows"))]
 static APP_NAME: &str = "prn";
@@ -152,6 +156,10 @@ impl Config {
             log::error!("Path does not exist: {:?}", path);
         }
         path.exists()
+    }
+
+    pub fn filters(&self) -> Filter {
+        self.into()
     }
 }
 

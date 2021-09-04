@@ -1,6 +1,127 @@
 use regex::Regex;
-use std::time::{Duration, SystemTime};
+use std::{
+    fs::Metadata,
+    time::{Duration, SystemTime},
+};
 use walkdir::DirEntry;
+
+use crate::{
+    cfg::{Config, Mode},
+    size::Size,
+};
+
+pub struct Filter {
+    only_local_fs: bool,
+    max_age: Option<Duration>,
+    pattern: Option<Regex>,
+    min_size: u64,
+    mode: Mode,
+}
+
+const PROC: &str = "/proc";
+
+impl Filter {
+    pub fn new(
+        only_local_fs: bool,
+        max_age: Option<Duration>,
+        pattern: Option<Regex>,
+        min_size: Size,
+        mode: Mode,
+    ) -> Filter {
+        Filter {
+            only_local_fs,
+            max_age,
+            pattern,
+            min_size: min_size.as_bytes(),
+            mode,
+        }
+    }
+    pub fn accept(&self, e: &DirEntry) -> bool {
+        let metadata: Metadata = match e.metadata() {
+            Ok(metadata) => metadata,
+            Err(err) => {
+                log::warn!("Unable to obtain metadata for {:?}: {:?}", e.path(), err);
+                return false;
+            }
+        };
+
+        if let Mode::File = self.mode {
+            if metadata.len() < self.min_size {
+                return false;
+            }
+        }
+
+        if !metadata.is_file() {
+            return false;
+        }
+
+        let accept_age: bool = match self.max_age {
+            Some(max_age) => Filter::filter_mod_time(&metadata, &max_age),
+            None => true,
+        };
+
+        if !accept_age {
+            return false;
+        }
+
+        let file_name: String = match Filter::file_name(e) {
+            Some(name) => name,
+            None => return false,
+        };
+
+        if e.path().starts_with(PROC) {
+            return false;
+        }
+
+        match &self.pattern {
+            Some(pattern) => pattern.is_match(&file_name),
+            None => true,
+        }
+    }
+
+    fn file_name(entry: &DirEntry) -> Option<String> {
+        match entry.path().file_name() {
+            Some(name) => name.to_str().map(|n| n.to_string()),
+            None => None,
+        }
+    }
+
+    fn filter_mod_time(metadata: &Metadata, max_age: &Duration) -> bool {
+        let mod_time: SystemTime = match metadata.modified() {
+            Ok(m) => m,
+            Err(_) => return false,
+        };
+
+        let now = SystemTime::now();
+        if mod_time > now {
+            log::warn!(
+                "Found modification timestamp set in the future: {:?}",
+                mod_time
+            );
+            return false;
+        }
+        let elapsed_time: Duration = match now.duration_since(mod_time) {
+            Ok(duration) => duration,
+            Err(e) => {
+                log::error!("Cannot get duration since {:?}: {}", mod_time, e);
+                return false;
+            }
+        };
+        elapsed_time > *max_age
+    }
+}
+
+impl From<&Config> for Filter {
+    fn from(cfg: &Config) -> Self {
+        Filter {
+            only_local_fs: cfg.only_local_fs,
+            max_age: cfg.max_age,
+            pattern: cfg.pattern.clone(),
+            min_size: cfg.min_size_bytes(),
+            mode: cfg.mode(),
+        }
+    }
+}
 
 pub fn summarize(files: Vec<DirEntry>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
@@ -9,84 +130,9 @@ pub fn summarize(files: Vec<DirEntry>) -> (u64, u64) {
     (found, size)
 }
 
-pub fn filter_size(file: &DirEntry, min_size: u64) -> bool {
-    match file.metadata() {
-        Ok(meta) => meta.len() >= min_size,
-        Err(e) => {
-            log::warn!("{}: {:?}", e, file);
-            false
-        }
-    }
-}
-
-pub fn filter_name(entry: &DirEntry, pattern: &Option<Regex>) -> bool {
-    match pattern {
-        None => true,
-        Some(regex) => {
-            let file_name: &str = match entry.path().file_name() {
-                Some(f) => match f.to_str() {
-                    Some(f_str) => f_str,
-                    None => {
-                        log::error!("Unable to parse filename for: {:?}", entry);
-                        return false;
-                    }
-                },
-                None => {
-                    log::error!("No filename for file: {:?}", entry);
-                    return false;
-                }
-            };
-            regex.is_match(file_name)
-        }
-    }
-}
-
-pub fn filter_mod_time(entry: &DirEntry, max_age: &Option<Duration>) -> bool {
-    let max_age: &Duration = match max_age {
-        None => return true,
-        Some(duration) => duration,
-    };
-    let metadata = match entry.metadata() {
-        Err(_) => return false,
-        Ok(m) => m,
-    };
-    let mod_time: SystemTime = match metadata.modified() {
-        Ok(m) => m,
-        Err(_) => return false,
-    };
-
-    let now = SystemTime::now();
-    if mod_time > now {
-        log::warn!(
-            "Found modification timestamp set in the future for {:?}: {:?}",
-            entry,
-            mod_time
-        );
-        return false;
-    }
-    let elapsed_time: Duration = match now.duration_since(mod_time) {
-        Ok(duration) => duration,
-        Err(e) => {
-            log::error!(
-                "Cannot get duration since {:?} for {:?}: {}",
-                mod_time,
-                entry,
-                e
-            );
-            return false;
-        }
-    };
-    elapsed_time > *max_age
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{
-        cfg::Config,
-        create_walker,
-        find::{filter_name, filter_size, summarize},
-        walk_files,
-    };
+    use crate::{cfg::Config, create_walker, find::summarize, walk_files};
     use regex::Regex;
     use std::path::PathBuf;
     use std::str::FromStr;
