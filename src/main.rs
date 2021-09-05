@@ -6,7 +6,6 @@ mod cfg;
 mod dbg;
 mod duration;
 mod find;
-mod fs;
 mod logger;
 mod parse;
 mod print;
@@ -54,7 +53,7 @@ fn walk_files(cfg: &Config) -> (u64, u64) {
         .into_iter()
         .flatten()
         .filter_map(|e| e.ok())
-        .filter(|e: &DirEntry| filter.accept(e))
+        .filter(|e: &DirEntry| filter.accept(e.path()))
         .take(limit)
         .inspect(|f| print_file(f, cfg))
         .collect();
@@ -73,8 +72,9 @@ fn walk_dirs(cfg: &Config) -> (u64, u64) {
         .map(|path: &PathBuf| create_walker(cfg, path))
         .flatten()
         .filter_map(|e| e.ok())
-        .filter(|e: &DirEntry| filter.accept(e))
-        .map(|f: DirEntry| size_of(&f))
+        .map(|e: DirEntry| e.into_path())
+        .filter(|e: &PathBuf| filter.accept(e.as_path()))
+        .map(|f: PathBuf| size_of(&f))
         .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
@@ -105,12 +105,12 @@ fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &Path,
     }
 }
 
-fn size_of(entry: &DirEntry) -> (PathBuf, u64) {
+fn size_of(entry: &Path) -> (PathBuf, u64) {
     let size: u64 = match entry.metadata() {
         Ok(metadata) => metadata.len(),
         Err(_) => 0,
     };
-    let parent: PathBuf = entry.path().parent().unwrap().to_path_buf();
+    let parent: PathBuf = entry.parent().unwrap().to_path_buf();
     (parent, size)
 }
 

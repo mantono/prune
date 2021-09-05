@@ -1,13 +1,13 @@
 use regex::Regex;
 use std::{
     fs::Metadata,
+    path::Path,
     time::{Duration, SystemTime},
 };
 use walkdir::DirEntry;
 
 use crate::{
     cfg::{Config, Mode},
-    fs::FsEntity,
     size::Size,
 };
 
@@ -58,11 +58,12 @@ impl Filter {
         self
     }
 
-    pub fn accept(&self, e: &dyn FsEntity) -> bool {
+    pub fn accept<'a, T: Into<&'a Path>>(&self, e: T) -> bool {
+        let e: &'a Path = e.into();
         let metadata: Metadata = match e.metadata() {
             Ok(metadata) => metadata,
             Err(err) => {
-                log::warn!("Unable to obtain metadata for {:?}: {:?}", e.path(), err);
+                log::warn!("Unable to obtain metadata for {:?}: {:?}", e, err);
                 return false;
             }
         };
@@ -91,7 +92,7 @@ impl Filter {
             None => return false,
         };
 
-        if e.path().starts_with(PROC) {
+        if e.starts_with(PROC) {
             return false;
         }
 
@@ -101,8 +102,8 @@ impl Filter {
         }
     }
 
-    fn file_name(entry: &dyn FsEntity) -> Option<String> {
-        match entry.path().file_name() {
+    fn file_name(entry: &Path) -> Option<String> {
+        match entry.file_name() {
             Some(name) => name.to_str().map(|n| n.to_string()),
             None => None,
         }
@@ -197,7 +198,7 @@ mod tests {
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| filter.accept(e))
+            .filter(|e| filter.accept(e.path()))
             .collect();
 
         let result: (u64, u64) = summarize(files);
@@ -223,7 +224,7 @@ mod tests {
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|f| filter.accept(f))
+            .filter(|f| filter.accept(f.path()))
             .collect();
 
         assert_eq!(2, files.len());
