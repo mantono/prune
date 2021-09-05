@@ -7,6 +7,7 @@ use walkdir::DirEntry;
 
 use crate::{
     cfg::{Config, Mode},
+    fs::FsEntity,
     size::Size,
 };
 
@@ -57,7 +58,7 @@ impl Filter {
         self
     }
 
-    pub fn accept(&self, e: &DirEntry) -> bool {
+    pub fn accept(&self, e: &dyn FsEntity) -> bool {
         let metadata: Metadata = match e.metadata() {
             Ok(metadata) => metadata,
             Err(err) => {
@@ -100,7 +101,7 @@ impl Filter {
         }
     }
 
-    fn file_name(entry: &DirEntry) -> Option<String> {
+    fn file_name(entry: &dyn FsEntity) -> Option<String> {
         match entry.path().file_name() {
             Some(name) => name.to_str().map(|n| n.to_string()),
             None => None,
@@ -196,7 +197,7 @@ mod tests {
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| filter.accept(&e))
+            .filter(|e| filter.accept(e))
             .collect();
 
         let result: (u64, u64) = summarize(files);
@@ -222,7 +223,7 @@ mod tests {
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|f| filter.accept(&f))
+            .filter(|f| filter.accept(f))
             .collect();
 
         assert_eq!(2, files.len());

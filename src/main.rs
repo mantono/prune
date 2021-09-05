@@ -6,6 +6,7 @@ mod cfg;
 mod dbg;
 mod duration;
 mod find;
+mod fs;
 mod logger;
 mod parse;
 mod print;
