@@ -36,6 +36,27 @@ impl Filter {
             mode,
         }
     }
+
+    pub fn with_only_local_fs(mut self, only_local_fs: bool) -> Self {
+        self.only_local_fs = only_local_fs;
+        self
+    }
+
+    pub fn with_max_age(mut self, max_age: Option<Duration>) -> Self {
+        self.max_age = max_age;
+        self
+    }
+
+    pub fn with_pattern(mut self, pattern: Option<Regex>) -> Self {
+        self.pattern = pattern;
+        self
+    }
+
+    pub fn with_min_size(mut self, min_size: Size) -> Self {
+        self.min_size = min_size.as_bytes();
+        self
+    }
+
     pub fn accept(&self, e: &DirEntry) -> bool {
         let metadata: Metadata = match e.metadata() {
             Ok(metadata) => metadata,
@@ -123,6 +144,18 @@ impl From<&Config> for Filter {
     }
 }
 
+impl Default for Filter {
+    fn default() -> Self {
+        Filter {
+            only_local_fs: false,
+            max_age: None,
+            pattern: None,
+            min_size: Size::Megabyte(100).as_bytes(),
+            mode: Mode::File,
+        }
+    }
+}
+
 pub fn summarize(files: Vec<DirEntry>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
     let size: u64 = files.iter().map(|f| f.metadata().unwrap().len()).sum();
@@ -132,6 +165,8 @@ pub fn summarize(files: Vec<DirEntry>) -> (u64, u64) {
 
 #[cfg(test)]
 mod tests {
+    use crate::find::Filter;
+    use crate::size::Size;
     use crate::{cfg::Config, create_walker, find::summarize, walk_files};
     use regex::Regex;
     use std::path::PathBuf;
@@ -157,11 +192,11 @@ mod tests {
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
+        let filter = Filter::default().with_min_size(Size::Byte(100));
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
-            .filter(|f| filter_size(f, 100))
+            .filter(|e| filter.accept(&e))
             .collect();
 
         let result: (u64, u64) = summarize(files);
@@ -181,10 +216,13 @@ mod tests {
     fn test_filter_by_file_pattern() {
         let dir = PathBuf::from(TEST_DIR);
         let pattern: Option<Regex> = Some(Regex::from_str("file[01]$").unwrap());
+        let filter = Filter::default()
+            .with_pattern(pattern)
+            .with_min_size(Size::Byte(1));
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|f| filter_name(f, &pattern))
+            .filter(|f| filter.accept(&f))
             .collect();
 
         assert_eq!(2, files.len());

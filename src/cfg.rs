@@ -181,7 +181,7 @@ impl Default for Config {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Mode {
     File,
     Dir,
