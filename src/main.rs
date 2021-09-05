@@ -13,11 +13,12 @@ mod size;
 
 use crate::cfg::Config;
 use crate::dbg::dbg_info;
-use crate::find::{filter_mod_time, filter_name, filter_size, summarize};
+use crate::find::summarize;
 use crate::logger::setup_logging;
 use crate::print::{print_dir, print_file, print_summary};
 use crate::structopt::StructOpt;
 use cfg::Mode;
+use find::Filter;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -44,17 +45,15 @@ fn main() {
 
 fn walk_files(cfg: &Config) -> (u64, u64) {
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
+    let filter: Filter = cfg.into();
     let files: Vec<DirEntry> = cfg
         .paths()
         .iter()
         .map(|path: &PathBuf| create_walker(cfg, path))
+        .into_iter()
         .flatten()
         .filter_map(|e| e.ok())
-        .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
-        .filter(|f: &DirEntry| filter_size(f, cfg.min_size_bytes()))
-        .filter(|f: &DirEntry| filter_name(f, &cfg.pattern))
-        .filter(|f: &DirEntry| !in_proc(f))
-        .filter(|f: &DirEntry| filter_mod_time(f, &cfg.max_age))
+        .filter(|e: &DirEntry| filter.accept(e))
         .take(limit)
         .inspect(|f| print_file(f, cfg))
         .collect();
@@ -62,24 +61,18 @@ fn walk_files(cfg: &Config) -> (u64, u64) {
     summarize(files)
 }
 
-fn in_proc(entry: &DirEntry) -> bool {
-    entry.path().starts_with("/proc")
-}
-
 fn walk_dirs(cfg: &Config) -> (u64, u64) {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
     let paths: Vec<PathBuf> = cfg.paths();
     let root: &Path = paths.first().unwrap();
+    let filter: Filter = cfg.into();
 
     cfg.paths()
         .iter()
         .map(|path: &PathBuf| create_walker(cfg, path))
         .flatten()
         .filter_map(|e| e.ok())
-        .filter(|f: &DirEntry| f.metadata().unwrap().is_file())
-        .filter(|f: &DirEntry| filter_mod_time(f, &cfg.max_age))
-        .filter(|f: &DirEntry| filter_name(f, &cfg.pattern))
-        .filter(|f: &DirEntry| !in_proc(f))
+        .filter(|e: &DirEntry| filter.accept(e))
         .map(|f: DirEntry| size_of(&f))
         .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
