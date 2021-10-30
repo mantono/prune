@@ -1,6 +1,6 @@
 use regex::Regex;
 use std::{
-    fs::{metadata, Metadata},
+    fs::Metadata,
     ops::RangeInclusive,
     time::{Duration, SystemTime},
 };
@@ -12,7 +12,6 @@ use crate::{
 };
 
 pub struct Filter {
-    only_local_fs: bool,
     mod_age: Option<RangeInclusive<Duration>>,
     pattern: Option<Regex>,
     min_size: u64,
@@ -23,24 +22,17 @@ const PROC: &str = "/proc";
 
 impl Filter {
     pub fn new(
-        only_local_fs: bool,
         mod_age: Option<RangeInclusive<Duration>>,
         pattern: Option<Regex>,
         min_size: Size,
         mode: Mode,
     ) -> Filter {
         Filter {
-            only_local_fs,
             mod_age,
             pattern,
             min_size: min_size.as_bytes(),
             mode,
         }
-    }
-
-    pub fn with_only_local_fs(mut self, only_local_fs: bool) -> Self {
-        self.only_local_fs = only_local_fs;
-        self
     }
 
     pub fn with_pattern(mut self, pattern: Option<Regex>) -> Self {
@@ -137,7 +129,6 @@ impl Filter {
 impl From<&Config> for Filter {
     fn from(cfg: &Config) -> Self {
         Filter {
-            only_local_fs: cfg.only_local_fs,
             mod_age: mod_age_range(&cfg.min_age, &cfg.max_age),
             pattern: cfg.pattern.clone(),
             min_size: cfg.min_size_bytes(),
@@ -161,7 +152,6 @@ fn mod_age_range(
 impl Default for Filter {
     fn default() -> Self {
         Filter {
-            only_local_fs: false,
             mod_age: None,
             pattern: None,
             min_size: Size::Megabyte(100).as_bytes(),
