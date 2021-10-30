@@ -69,20 +69,14 @@ pub struct Config {
     /// Filter based on min mod time
     ///
     /// Only include files which modification time is equal to or more than this.
-    /// Such as
-    /// - 180s for 180 seconds
-    /// - 45d for 45 days
-    /// - 3y for 3 years
+    /// Such as `180s` for 180 seconds, `45d` for 45 days and `3y` for 3 years.
     #[structopt(short = "m", long = "min-mod-time", parse(try_from_str = parse_duration))]
     pub min_age: Option<Duration>,
 
     /// Filter based on max mod time
     ///
     /// Only include files which modification time is equal to or less than this.
-    /// Such as
-    /// - 180s for 180 seconds
-    /// - 45d for 45 days
-    /// - 3y for 3 years
+    /// Such as `180s` for 180 seconds, `45d` for 45 days and `3y` for 3 years.
     #[structopt(short = "M", long = "max-mod-time", parse(try_from_str = parse_duration))]
     pub max_age: Option<Duration>,
 
