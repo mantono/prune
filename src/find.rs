@@ -150,13 +150,11 @@ fn mod_age_range(
     start: &Option<Duration>,
     end: &Option<Duration>,
 ) -> Option<RangeInclusive<Duration>> {
-    let min = Duration::new(0, 0);
-    let max = Duration::new(u64::MAX, 0);
+    let min = start.unwrap_or(Duration::new(0, 0));
+    let max = end.unwrap_or(Duration::new(u64::MAX, 0));
     match (start, end) {
-        (Some(start), Some(end)) => Some(start.clone()..=end.clone()),
-        (Some(start), None) => Some(start.clone()..=max),
-        (None, Some(end)) => Some(min..=end.clone()),
         (None, None) => None,
+        _ => Some(min..=max),
     }
 }
 
