@@ -66,17 +66,23 @@ pub struct Config {
     #[structopt(short, long)]
     pub limit: Option<usize>,
 
-    /// Filter based on mod time
+    /// Filter based on min mod time
     ///
     /// Only include files which modification time is equal to or more than this.
-    /// For example 180s for 180 seconds, 45d for 45 days or 3y for 3 years.
+    /// Such as
+    /// - 180s for 180 seconds
+    /// - 45d for 45 days
+    /// - 3y for 3 years
     #[structopt(short = "m", long = "min-mod-time", parse(try_from_str = parse_duration))]
     pub min_age: Option<Duration>,
 
-    /// Filter based on mod time
+    /// Filter based on max mod time
     ///
     /// Only include files which modification time is equal to or less than this.
-    /// For example 180s for 180 seconds, 45d for 45 days or 3y for 3 years.
+    /// Such as
+    /// - 180s for 180 seconds
+    /// - 45d for 45 days
+    /// - 3y for 3 years
     #[structopt(short = "M", long = "max-mod-time", parse(try_from_str = parse_duration))]
     pub max_age: Option<Duration>,
 
@@ -163,10 +169,6 @@ impl Config {
             log::error!("Path does not exist: {:?}", path);
         }
         path.exists()
-    }
-
-    pub fn filters(&self) -> Filter {
-        self.into()
     }
 }
 

@@ -13,8 +13,7 @@ use crate::{
 
 pub struct Filter {
     only_local_fs: bool,
-    min_age: Duration,
-    max_age: Duration,
+    mod_age: Option<RangeInclusive<Duration>>,
     pattern: Option<Regex>,
     min_size: u64,
     mode: Mode,
@@ -25,16 +24,14 @@ const PROC: &str = "/proc";
 impl Filter {
     pub fn new(
         only_local_fs: bool,
-        min_age: Duration,
-        max_age: Duration,
+        mod_age: Option<RangeInclusive<Duration>>,
         pattern: Option<Regex>,
         min_size: Size,
         mode: Mode,
     ) -> Filter {
         Filter {
             only_local_fs,
-            min_age,
-            max_age,
+            mod_age,
             pattern,
             min_size: min_size.as_bytes(),
             mode,
@@ -43,16 +40,6 @@ impl Filter {
 
     pub fn with_only_local_fs(mut self, only_local_fs: bool) -> Self {
         self.only_local_fs = only_local_fs;
-        self
-    }
-
-    pub fn with_min_age(mut self, min_age: Option<Duration>) -> Self {
-        self.min_age = min_age.unwrap_or(Duration::from_millis(0));
-        self
-    }
-
-    pub fn with_max_age(mut self, max_age: Option<Duration>) -> Self {
-        self.max_age = max_age.unwrap_or(Duration::new(u64::MAX, 0));
         self
     }
 
@@ -85,8 +72,7 @@ impl Filter {
             return false;
         }
 
-        let range: RangeInclusive<Duration> = self.min_age..=self.max_age;
-        let accept_age: bool = Filter::filter_mod_time(&metadata, &range);
+        let accept_age: bool = Filter::filter_mod_time(&metadata, &self.mod_age);
 
         if !accept_age {
             return false;
@@ -114,7 +100,16 @@ impl Filter {
         }
     }
 
-    fn filter_mod_time(metadata: &Metadata, range: &RangeInclusive<Duration>) -> bool {
+    fn filter_mod_time(metadata: &Metadata, range: &Option<RangeInclusive<Duration>>) -> bool {
+        let range: &RangeInclusive<Duration> = match range {
+            Some(age_range) => age_range,
+            None => return true,
+        };
+
+        if range.is_empty() {
+            return false;
+        }
+
         let mod_time: SystemTime = match metadata.modified() {
             Ok(m) => m,
             Err(_) => return false,
@@ -143,8 +138,7 @@ impl From<&Config> for Filter {
     fn from(cfg: &Config) -> Self {
         Filter {
             only_local_fs: cfg.only_local_fs,
-            min_age: cfg.min_age.unwrap_or(Duration::from_millis(0)),
-            max_age: cfg.max_age.unwrap_or(Duration::new(u64::MAX, 0)),
+            mod_age: mod_age_range(&cfg.min_age, &cfg.max_age),
             pattern: cfg.pattern.clone(),
             min_size: cfg.min_size_bytes(),
             mode: cfg.mode(),
@@ -152,12 +146,25 @@ impl From<&Config> for Filter {
     }
 }
 
+fn mod_age_range(
+    start: &Option<Duration>,
+    end: &Option<Duration>,
+) -> Option<RangeInclusive<Duration>> {
+    let min = Duration::new(0, 0);
+    let max = Duration::new(u64::MAX, 0);
+    match (start, end) {
+        (Some(start), Some(end)) => Some(start.clone()..=end.clone()),
+        (Some(start), None) => Some(start.clone()..=max),
+        (None, Some(end)) => Some(min..=end.clone()),
+        (None, None) => None,
+    }
+}
+
 impl Default for Filter {
     fn default() -> Self {
         Filter {
             only_local_fs: false,
-            min_age: Duration::from_millis(0),
-            max_age: Duration::new(u64::MAX, 0),
+            mod_age: None,
             pattern: None,
             min_size: Size::Megabyte(100).as_bytes(),
             mode: Mode::File,
