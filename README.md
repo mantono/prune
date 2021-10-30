@@ -35,9 +35,16 @@ OPTIONS:
     -l, --limit <limit>
             Only list the first N files found given by this limit. If no value is set for this option, the application
             will not stop until it has gone through all files in the directory and subdirectories.
-    -m, --mod-time <duration>
-            Only include files which modification time is older than this. For example 180s for 180 seconds, 45d for 45
-            days or 3y for 3 years.
+    -M, --max-mod-time <max-age>
+            Filter based on max mod time
+
+            Only include files which modification time is equal to or less than this. Such as `180s` for 180 seconds,
+            `45d` for 45 days and `3y` for 3 years.
+    -m, --min-mod-time <min-age>
+            Filter based on min mod time
+
+            Only include files which modification time is equal to or more than this. Such as `180s` for 180 seconds,
+            `45d` for 45 days and `3y` for 3 years.
     -p, --pattern <pattern>
             Only include and count files matching the regular expression.
 

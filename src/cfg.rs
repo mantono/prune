@@ -66,12 +66,19 @@ pub struct Config {
     #[structopt(short, long)]
     pub limit: Option<usize>,
 
-    /// Filter based on mod time
+    /// Filter based on min mod time
     ///
-    /// Only include files which modification time is older than this. For example 180s for 180
-    /// seconds, 45d for 45 days or 3y for 3 years.
-    #[structopt(short = "m", long = "mod-time", parse(try_from_str = parse_duration))]
+    /// Only include files which modification time is equal to or more than this.
+    /// Such as `180s` for 180 seconds, `45d` for 45 days and `3y` for 3 years.
+    #[structopt(short = "m", long = "min-mod-time", parse(try_from_str = parse_duration))]
     pub min_age: Option<Duration>,
+
+    /// Filter based on max mod time
+    ///
+    /// Only include files which modification time is equal to or less than this.
+    /// Such as `180s` for 180 seconds, `45d` for 45 days and `3y` for 3 years.
+    #[structopt(short = "M", long = "max-mod-time", parse(try_from_str = parse_duration))]
+    pub max_age: Option<Duration>,
 
     /// Filter files by regex pattern
     ///
@@ -157,10 +164,6 @@ impl Config {
         }
         path.exists()
     }
-
-    pub fn filters(&self) -> Filter {
-        self.into()
-    }
 }
 
 impl Default for Config {
@@ -174,6 +177,7 @@ impl Default for Config {
             depth: None,
             limit: None,
             min_age: None,
+            max_age: None,
             pattern: None,
             verbosity_level: 0,
             min_size: Size::Megabyte(100),
