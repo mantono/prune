@@ -21,25 +21,18 @@ pub struct Filter {
 const PROC: &str = "/proc";
 
 impl Filter {
-    pub fn new(
-        mod_age: Option<RangeInclusive<Duration>>,
-        pattern: Option<Regex>,
-        min_size: Size,
-        mode: Mode,
-    ) -> Filter {
-        Filter {
-            mod_age,
-            pattern,
-            min_size: min_size.as_bytes(),
-            mode,
-        }
+    #[cfg(test)]
+    pub fn new() -> Filter {
+        Filter::default()
     }
 
+    #[cfg(test)]
     pub fn with_pattern(mut self, pattern: Option<Regex>) -> Self {
         self.pattern = pattern;
         self
     }
 
+    #[cfg(test)]
     pub fn with_min_size(mut self, min_size: Size) -> Self {
         self.min_size = min_size.as_bytes();
         self
@@ -196,7 +189,7 @@ mod tests {
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
-        let filter = Filter::default().with_min_size(Size::Byte(100));
+        let filter = Filter::new().with_min_size(Size::Byte(100));
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -220,7 +213,7 @@ mod tests {
     fn test_filter_by_file_pattern() {
         let dir = PathBuf::from(TEST_DIR);
         let pattern: Option<Regex> = Some(Regex::from_str("file[01]$").unwrap());
-        let filter = Filter::default()
+        let filter = Filter::new()
             .with_pattern(pattern)
             .with_min_size(Size::Byte(1));
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
