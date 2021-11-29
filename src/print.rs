@@ -6,7 +6,13 @@ use walkdir::DirEntry;
 
 pub fn print_file(entry: &DirEntry, cfg: &Config) {
     let file: &Path = entry.path();
-    let size: u64 = file.metadata().unwrap().len();
+    let size: u64 = match file.metadata() {
+        Ok(metadata) => metadata.len(),
+        Err(err) => {
+            log_error(err, file);
+            return;
+        }
+    };
     if cfg.plumbing_mode {
         print_plumbing(file, size)
     } else {
