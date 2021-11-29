@@ -24,8 +24,9 @@ pub fn print_dir(dir: &Path, size: u64, cfg: &Config) {
 
 fn print_porcelain(file: &Path, size: u64) {
     if let Some(path) = fmt_path(file, 0) {
-        let size = size.file_size(options::CONVENTIONAL).unwrap();
-        println!("{:>10} │ {}", size, path);
+        if let Ok(size) = size.file_size(options::CONVENTIONAL) {
+            println!("{:>10} │ {}", size, path);
+        }
     }
 }
 
