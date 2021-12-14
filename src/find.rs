@@ -155,7 +155,11 @@ impl Default for Filter {
 
 pub fn summarize(files: Vec<DirEntry>) -> (u64, u64) {
     let found: u64 = files.len() as u64;
-    let size: u64 = files.iter().map(|f| f.metadata().unwrap().len()).sum();
+    let size: u64 = files
+        .iter()
+        .filter_map(|f| f.metadata().ok())
+        .map(|m| m.len())
+        .sum();
 
     (found, size)
 }
