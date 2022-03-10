@@ -9,7 +9,7 @@ build = "build.rs"
 [dependencies]
 structopt = "0.3"
 humansize = "1.1"
-regex = "1.5"
+regex = "1.5.5"
 lazy_static = "1.4"
 log = "0.4"
 env_logger = "0.9"
