@@ -2,11 +2,12 @@ name: Build & Test
 on:
   push:
     paths:
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - 'src/**'
-      - 'tests/**'
-      - '.github/workflows/rust.yml'
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "src/**"
+      - "tests/**"
+      - "examples/**"
+      - ".github/workflows/rust.yml"
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -16,20 +17,27 @@ jobs:
       max-parallel: 3
       fail-fast: false
     steps:
-    - uses: actions/checkout@v1
-    - name: Change Project Name
-      if: contains(runner.os, 'Windows')
-      run: |
-        get-content Cargo.toml | %{$_ -replace "prn","prune"} > windows.toml
-        mv -Force windows.toml Cargo.toml
-    - name: Restore Cache
-      uses: Swatinem/rust-cache@v1
-    - name: Fetch Dependencies
-      run: cargo fetch
-    - name: Build
-      run: cargo build --all-features
-    - name: Run tests
-      run: cargo test
+      - uses: actions/checkout@v1
+      - name: Change Project Name
+        if: contains(runner.os, 'Windows')
+        run: |
+          get-content Cargo.toml | %{$_ -replace "prn","prune"} > windows.toml
+          mv -Force windows.toml Cargo.toml
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Fetch Dependencies
+        run: cargo fetch
+      - name: Build
+        run: cargo build --all-features
+      - name: Run tests
+        run: cargo test
 
   lint:
     runs-on: ubuntu-latest
