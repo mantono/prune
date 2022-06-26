@@ -23,7 +23,6 @@ jobs:
         run: |
           get-content Cargo.toml | %{$_ -replace "prn","prune"} > windows.toml
           mv -Force windows.toml Cargo.toml
-      # This is a comment to trigger flow again
       - uses: actions/cache@v3
         with:
           path: |
