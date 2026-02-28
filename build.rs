@@ -1,19 +1,26 @@
-use std::path::{ Path, PathBuf };
-use built::Options;
+use std::process::Command;
 
 fn main() {
-    let mut default: Options = Options::default();
-    let options = default
-        .set_compiler(true)
-        .set_cfg(true)
-        .set_ci(false)
-        .set_dependencies(false)
-        .set_git(true)
-        .set_env(true)
-        .set_features(true);
+    let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
+    let profile = std::env::var("PROFILE").unwrap_or_else(|_| "unknown".to_string());
+    println!("cargo:rustc-env=BUILD_TARGET={target}");
+    println!("cargo:rustc-env=BUILD_PROFILE={profile}");
 
-    let src: PathBuf = std::env::var("CARGO_MANIFEST_DIR").unwrap().into();
-    let dst: PathBuf = Path::new(&std::env::var("OUT_DIR").unwrap()).join("built.rs");
+    let git_commit = Command::new("git")
+        .args(["describe", "--always", "--dirty"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("cargo:rustc-env=BUILD_GIT_COMMIT={git_commit}");
 
-    built::write_built_file_with_opts(&options, &src, &dst).expect("Failed to acquire build-time information");
+    let rustc_version = Command::new("rustc")
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("cargo:rustc-env=BUILD_RUSTC_VERSION={rustc_version}");
 }
