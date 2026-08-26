@@ -13,7 +13,6 @@ mod size;
 
 use crate::cfg::Config;
 use crate::dbg::dbg_info;
-use crate::find::summarize;
 use crate::logger::setup_logging;
 use crate::print::{print_dir, print_file, print_summary};
 use crate::structopt::StructOpt;
@@ -46,19 +45,17 @@ fn main() {
 fn walk_files(cfg: &Config) -> (u64, u64) {
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let filter: Filter = cfg.into();
-    let files: Vec<DirEntry> = cfg
-        .paths()
+    cfg.paths()
         .iter()
         .map(|path: &PathBuf| create_walker(cfg, path))
-        .into_iter()
         .flatten()
-        .filter_map(|e| e.ok())
-        .filter(|e: &DirEntry| filter.accept(e))
+        .filter_map(Result::ok)
+        .filter_map(|entry: DirEntry| filter.accept(&entry).map(|size| (entry, size)))
         .take(limit)
-        .inspect(|f| print_file(f, cfg))
-        .collect();
-
-    summarize(files)
+        .fold((0, 0), |(found, total_size), (entry, size)| {
+            print_file(entry.path(), size, cfg);
+            (found + 1, total_size + size)
+        })
 }
 
 fn walk_dirs(cfg: &Config) -> (u64, u64) {
@@ -71,9 +68,12 @@ fn walk_dirs(cfg: &Config) -> (u64, u64) {
         .iter()
         .map(|path: &PathBuf| create_walker(cfg, path))
         .flatten()
-        .filter_map(|e| e.ok())
-        .filter(|e: &DirEntry| filter.accept(e))
-        .map(|f: DirEntry| size_of(&f))
+        .filter_map(Result::ok)
+        .filter_map(|entry: DirEntry| {
+            filter
+                .accept(&entry)
+                .map(|size| (entry.path().parent().unwrap().to_path_buf(), size))
+        })
         .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
@@ -102,15 +102,6 @@ fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &Path,
     if let Some(parent) = path.parent() {
         update_size(acc_size, PathBuf::from(parent), root, size)
     }
-}
-
-fn size_of(entry: &DirEntry) -> (PathBuf, u64) {
-    let size: u64 = match entry.metadata() {
-        Ok(metadata) => metadata.len(),
-        Err(_) => 0,
-    };
-    let parent: PathBuf = entry.path().parent().unwrap().to_path_buf();
-    (parent, size)
 }
 
 fn create_walker(cfg: &Config, path: &Path) -> WalkDir {

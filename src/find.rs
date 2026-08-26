@@ -38,43 +38,38 @@ impl Filter {
         self
     }
 
-    pub fn accept(&self, e: &DirEntry) -> bool {
+    pub fn accept(&self, e: &DirEntry) -> Option<u64> {
         let metadata: Metadata = match e.metadata() {
             Ok(metadata) => metadata,
             Err(err) => {
                 log::warn!("Unable to obtain metadata for {:?}: {:?}", e.path(), err);
-                return false;
+                return None;
             }
         };
 
         if let Mode::File = self.mode {
             if metadata.len() < self.min_size {
-                return false;
+                return None;
             }
         }
 
         if !metadata.is_file() {
-            return false;
+            return None;
         }
 
-        let accept_age: bool = Filter::filter_mod_time(&metadata, &self.mod_age);
-
-        if !accept_age {
-            return false;
+        if !Filter::filter_mod_time(&metadata, &self.mod_age) {
+            return None;
         }
 
-        let file_name: String = match Filter::file_name(e) {
-            Some(name) => name,
-            None => return false,
-        };
+        let file_name: String = Filter::file_name(e)?;
 
         if e.path().starts_with(PROC) {
-            return false;
+            return None;
         }
 
         match &self.pattern {
-            Some(pattern) => pattern.is_match(&file_name),
-            None => true,
+            Some(pattern) if !pattern.is_match(&file_name) => None,
+            _ => Some(metadata.len()),
         }
     }
 
@@ -153,22 +148,11 @@ impl Default for Filter {
     }
 }
 
-pub fn summarize(files: Vec<DirEntry>) -> (u64, u64) {
-    let found: u64 = files.len() as u64;
-    let size: u64 = files
-        .iter()
-        .filter_map(|f| f.metadata().ok())
-        .map(|m| m.len())
-        .sum();
-
-    (found, size)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::find::Filter;
     use crate::size::Size;
-    use crate::{cfg::Config, create_walker, find::summarize, walk_files};
+    use crate::{cfg::Config, create_walker, walk_files};
     use regex::Regex;
     use std::path::PathBuf;
     use std::str::FromStr;
@@ -177,32 +161,18 @@ mod tests {
     const TEST_DIR: &str = "test_dirs";
     const PROC: &str = "/proc";
 
-    #[test]
-    fn test_stop_at_one_found_file() {
-        let dir = PathBuf::from(TEST_DIR);
-        let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .take(1)
-            .collect();
-        let result: (u64, u64) = summarize(files);
-        assert_eq!(1, result.0);
-    }
-
     #[cfg(unix)]
     #[test]
     fn test_filter_by_file_size() {
         let dir = PathBuf::from(TEST_DIR);
         let filter = Filter::new().with_min_size(Size::Byte(100));
-        let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
+        let sizes: Vec<u64> = create_walker(&Config::default(), &dir)
             .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| filter.accept(&e))
+            .filter_map(Result::ok)
+            .filter_map(|entry: DirEntry| filter.accept(&entry))
             .collect();
 
-        let result: (u64, u64) = summarize(files);
-        assert_eq!(1, result.0);
-        assert_eq!(100, result.1);
+        assert_eq!(vec![100], sizes);
     }
 
     #[cfg(target_os = "linux")]
@@ -211,6 +181,19 @@ mod tests {
         let cfg = Config::default().with_path(PROC);
         let (found, _) = walk_files(&cfg);
         assert_eq!(0, found);
+    }
+
+    #[test]
+    fn filter_returns_size_from_accepted_metadata() {
+        let dir: PathBuf = PathBuf::from(TEST_DIR);
+        let entry: DirEntry = create_walker(&Config::default(), &dir)
+            .into_iter()
+            .filter_map(Result::ok)
+            .find(|entry: &DirEntry| entry.file_name() == "file2")
+            .expect("test fixture should contain file2");
+        let filter: Filter = Filter::new().with_min_size(Size::Byte(1));
+
+        assert_eq!(Some(100), filter.accept(&entry));
     }
 
     #[test]
@@ -223,7 +206,7 @@ mod tests {
         let files: Vec<DirEntry> = create_walker(&Config::default(), &dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|f| filter.accept(&f))
+            .filter(|f| filter.accept(f).is_some())
             .collect();
 
         assert_eq!(2, files.len());
