@@ -2,17 +2,8 @@ use crate::cfg::{Config, Mode};
 use humansize::{file_size_opts as options, FileSize};
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
-use walkdir::DirEntry;
 
-pub fn print_file(entry: &DirEntry, cfg: &Config) {
-    let file: &Path = entry.path();
-    let size: u64 = match file.metadata() {
-        Ok(metadata) => metadata.len(),
-        Err(err) => {
-            log_error(err, file);
-            return;
-        }
-    };
+pub fn print_file(file: &Path, size: u64, cfg: &Config) {
     if cfg.plumbing_mode {
         print_plumbing(file, size)
     } else {
