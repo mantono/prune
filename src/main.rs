@@ -25,6 +25,19 @@ use std::path::{Path, PathBuf};
 use std::process;
 use walkdir::{DirEntry, WalkDir};
 
+#[derive(Debug, Eq, PartialEq)]
+enum OutputErrorDisposition {
+    SilentSuccess,
+    DiagnosticFailure,
+}
+
+fn classify_output_error(error: &std::io::Error) -> OutputErrorDisposition {
+    match error.kind() {
+        std::io::ErrorKind::BrokenPipe => OutputErrorDisposition::SilentSuccess,
+        _ => OutputErrorDisposition::DiagnosticFailure,
+    }
+}
+
 fn main() {
     let cfg = Config::from_args();
     setup_logging(cfg.verbosity_level);
@@ -127,4 +140,30 @@ fn create_walker(cfg: &Config, path: &Path) -> WalkDir {
 
     log::debug!("walkdir: {:?}", walker);
     walker
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{classify_output_error, OutputErrorDisposition};
+    use std::io;
+
+    #[test]
+    fn classify_output_error_treats_broken_pipe_as_silent_success() {
+        let error: io::Error = io::Error::from(io::ErrorKind::BrokenPipe);
+
+        assert_eq!(
+            classify_output_error(&error),
+            OutputErrorDisposition::SilentSuccess
+        );
+    }
+
+    #[test]
+    fn classify_output_error_treats_non_pipe_as_diagnostic_failure() {
+        let error: io::Error = io::Error::from(io::ErrorKind::PermissionDenied);
+
+        assert_eq!(
+            classify_output_error(&error),
+            OutputErrorDisposition::DiagnosticFailure
+        );
+    }
 }
