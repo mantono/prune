@@ -209,7 +209,8 @@ mod tests {
     #[test]
     fn test_filter_out_proc() {
         let cfg = Config::default().with_path(PROC);
-        let (found, _) = walk_files(&cfg);
+        let mut output: Vec<u8> = Vec::new();
+        let (found, _) = walk_files(&cfg, &mut output).unwrap();
         assert_eq!(0, found);
     }
 

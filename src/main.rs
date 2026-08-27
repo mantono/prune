@@ -21,8 +21,8 @@ use cfg::Mode;
 use find::Filter;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::process;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -38,26 +38,30 @@ fn classify_output_error(error: &std::io::Error) -> OutputErrorDisposition {
     }
 }
 
+fn run(cfg: &Config, writer: &mut impl Write) -> io::Result<()> {
+    if cfg.print_dbg {
+        return writeln!(writer, "{}", dbg_info());
+    }
+
+    let (found, size): (u64, u64) = match cfg.mode() {
+        Mode::File => walk_files(cfg, writer),
+        Mode::Dir => walk_dirs(cfg, writer),
+    }?;
+
+    print_summary(writer, cfg.mode(), found, size, cfg)
+}
+
 fn main() {
-    let cfg = Config::from_args();
+    let cfg: Config = Config::from_args();
     setup_logging(cfg.verbosity_level);
     log::debug!("Config: {:?}", cfg);
 
-    if cfg.print_dbg {
-        println!("{}", dbg_info());
-        process::exit(0);
-    }
-
-    let (found, size) = match cfg.mode() {
-        Mode::File => walk_files(&cfg),
-        Mode::Dir => walk_dirs(&cfg),
-    };
-
-    let _ = print_summary(&mut std::io::stdout(), cfg.mode(), found, size, &cfg);
+    let stdout: io::Stdout = io::stdout();
+    let mut writer: BufWriter<io::StdoutLock<'_>> = BufWriter::new(stdout.lock());
+    let _ = run(&cfg, &mut writer);
 }
 
-fn walk_files(cfg: &Config) -> (u64, u64) {
-    let mut stdout: std::io::Stdout = std::io::stdout();
+fn walk_files(cfg: &Config, writer: &mut impl Write) -> io::Result<(u64, u64)> {
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let filter: Filter = cfg.into();
     let files: Vec<DirEntry> = cfg
@@ -66,19 +70,22 @@ fn walk_files(cfg: &Config) -> (u64, u64) {
         .map(|path: &PathBuf| create_walker(cfg, path))
         .into_iter()
         .flatten()
-        .filter_map(|e| e.ok())
-        .filter(|e: &DirEntry| filter.accept(e))
+        .filter_map(|entry| entry.ok())
+        .filter(|entry: &DirEntry| filter.accept(entry))
         .take(limit)
-        .inspect(|f| {
-            let _ = print_file(&mut stdout, f, cfg);
-        })
-        .collect();
+        .try_fold(
+            Vec::new(),
+            |mut files: Vec<DirEntry>, file: DirEntry| -> io::Result<Vec<DirEntry>> {
+                print_file(writer, &file, cfg)?;
+                files.push(file);
+                Ok(files)
+            },
+        )?;
 
-    summarize(files)
+    Ok(summarize(files))
 }
 
-fn walk_dirs(cfg: &Config) -> (u64, u64) {
-    let mut stdout: std::io::Stdout = std::io::stdout();
+fn walk_dirs(cfg: &Config, writer: &mut impl Write) -> io::Result<(u64, u64)> {
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
     let paths: Vec<PathBuf> = cfg.paths();
     let root: &Path = paths.first().unwrap();
@@ -94,21 +101,24 @@ fn walk_dirs(cfg: &Config) -> (u64, u64) {
         .for_each(|(dir, size)| update_size(&mut acc_size, dir, root, size));
 
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
-    let acc_size: Vec<u64> = acc_size
+    let sizes: Vec<u64> = acc_size
         .iter()
         .filter(|(_, size)| **size >= cfg.min_size_bytes())
         .take(limit)
         .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
-        .inspect(|(path, size)| {
-            let _ = print_dir(&mut stdout, path, **size, cfg);
-        })
-        .map(|(_, size)| *size)
-        .collect_vec();
+        .try_fold(
+            Vec::new(),
+            |mut sizes: Vec<u64>, (path, size): (&PathBuf, &u64)| -> io::Result<Vec<u64>> {
+                print_dir(writer, path, *size, cfg)?;
+                sizes.push(*size);
+                Ok(sizes)
+            },
+        )?;
 
-    let size: u64 = *acc_size.iter().max().unwrap_or(&0);
-    let found: u64 = acc_size.len() as u64;
+    let size: u64 = *sizes.iter().max().unwrap_or(&0);
+    let found: u64 = sizes.len() as u64;
 
-    (found, size)
+    Ok((found, size))
 }
 
 fn update_size(acc_size: &mut HashMap<PathBuf, u64>, path: PathBuf, root: &Path, size: u64) {
@@ -144,8 +154,51 @@ fn create_walker(cfg: &Config, path: &Path) -> WalkDir {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_output_error, OutputErrorDisposition};
-    use std::io;
+    use super::{classify_output_error, run, OutputErrorDisposition};
+    use crate::cfg::Config;
+    use crate::dbg::dbg_info;
+    use std::io::{self, Write};
+    use structopt::StructOpt;
+
+    struct FailingWriter {
+        writes: usize,
+    }
+
+    impl Write for FailingWriter {
+        fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+            self.writes += 1;
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "synthetic output failure",
+            ))
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn cli_execution_writes_debug_output_through_injected_writer() {
+        let cfg: Config = Config::from_iter_safe(&["prn", "--debug"]).unwrap();
+        let mut output: Vec<u8> = Vec::new();
+
+        run(&cfg, &mut output).unwrap();
+
+        assert_eq!(output, format!("{}\n", dbg_info()).into_bytes());
+    }
+
+    #[test]
+    fn cli_execution_stops_at_and_propagates_first_output_failure() {
+        let cfg: Config = Config::from_iter_safe(&["prn", "-P", "-s", "1", "test_dirs"]).unwrap();
+        let mut writer: FailingWriter = FailingWriter { writes: 0 };
+
+        let error: io::Error = run(&cfg, &mut writer).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(error.to_string(), "synthetic output failure");
+        assert_eq!(writer.writes, 1);
+    }
 
     #[test]
     fn classify_output_error_treats_broken_pipe_as_silent_success() {
