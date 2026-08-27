@@ -1,72 +1,87 @@
 use crate::cfg::{Config, Mode};
 use humansize::{file_size_opts as options, FileSize};
 use itertools::Itertools;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use walkdir::DirEntry;
 
-pub fn print_file(entry: &DirEntry, cfg: &Config) {
+pub fn print_file<W: Write>(writer: &mut W, entry: &DirEntry, cfg: &Config) -> io::Result<()> {
     let file: &Path = entry.path();
     let size: u64 = match file.metadata() {
         Ok(metadata) => metadata.len(),
         Err(err) => {
             log_error(err, file);
-            return;
+            return Ok(());
         }
     };
     if cfg.plumbing_mode {
-        print_plumbing(file, size)
+        print_plumbing(writer, file, size)
     } else {
-        print_porcelain(file, size)
+        print_porcelain(writer, file, size)
     }
 }
 
-pub fn print_dir(dir: &Path, size: u64, cfg: &Config) {
+pub fn print_dir<W: Write>(writer: &mut W, dir: &Path, size: u64, cfg: &Config) -> io::Result<()> {
     if cfg.plumbing_mode {
-        print_plumbing(dir, size)
+        print_plumbing(writer, dir, size)
     } else {
-        print_porcelain(dir, size)
+        print_porcelain(writer, dir, size)
     }
 }
 
-fn print_porcelain(file: &Path, size: u64) {
+fn print_porcelain<W: Write>(writer: &mut W, file: &Path, size: u64) -> io::Result<()> {
     if let Some(path) = fmt_path(file, 0) {
         if let Ok(size) = size.file_size(options::CONVENTIONAL) {
-            println!("{:>10} │ {}", size, path);
+            return writeln!(writer, "{:>10} │ {}", size, path);
         }
     }
+    Ok(())
 }
 
-fn print_plumbing(dir: &Path, size: u64) {
+fn print_plumbing<W: Write>(writer: &mut W, dir: &Path, size: u64) -> io::Result<()> {
     if let Some(dir) = canonical(dir) {
         if let Some(dir) = dir.as_os_str().to_str() {
-            println!("{}, {}", size, dir)
+            return writeln!(writer, "{}, {}", size, dir);
         }
     }
+    Ok(())
 }
 
-pub fn print_summary(kind: Mode, found: u64, size: u64, cfg: &Config) {
+pub fn print_summary<W: Write>(
+    writer: &mut W,
+    kind: Mode,
+    found: u64,
+    size: u64,
+    cfg: &Config,
+) -> io::Result<()> {
     if cfg.plumbing_mode {
-        print_summary_plumbing(found, size)
+        print_summary_plumbing(writer, found, size)
     } else {
-        print_summary_porcelain(kind, found, size)
+        print_summary_porcelain(writer, kind, found, size)
     }
 }
 
-fn print_summary_porcelain(mode: Mode, found: u64, size: u64) {
+fn print_summary_porcelain<W: Write>(
+    writer: &mut W,
+    mode: Mode,
+    found: u64,
+    size: u64,
+) -> io::Result<()> {
     let kind: &str = match mode {
         Mode::File => "files",
         Mode::Dir => "directories",
     };
-    let human_size = size.file_size(options::CONVENTIONAL).unwrap();
-    println!(
+    let human_size: String = size.file_size(options::CONVENTIONAL).unwrap();
+    writeln!(
+        writer,
         "Found {} {} with a total size of {}",
         found, kind, human_size,
-    );
+    )
 }
 
-fn print_summary_plumbing(found: u64, size: u64) {
-    println!("-----");
-    println!("{}, {}", size, found)
+fn print_summary_plumbing<W: Write>(writer: &mut W, found: u64, size: u64) -> io::Result<()> {
+    writeln!(writer, "-----")?;
+    writeln!(writer, "{}, {}", size, found)
 }
 
 fn fmt_path(path: &Path, root_level: usize) -> Option<String> {
@@ -127,114 +142,96 @@ mod tests {
         }
     }
 
-    // The `render_*` functions below are writer-injectable equivalents of the
-    // `println!`-based helpers above (`print_porcelain`, `print_plumbing`,
-    // `print_summary_porcelain`, `print_summary_plumbing`). They exist only to
-    // lock down the current byte-for-byte output shape and error-propagation
-    // behavior ahead of the writer-injection refactor tracked by issue #40.
-    // None of `print_file`, `print_dir`, `print_summary`, or the private
-    // `print_*`/`print_summary_*` helpers are touched by this commit.
-    fn render_porcelain<W: Write>(w: &mut W, file: &Path, size: u64) -> io::Result<()> {
-        let path = fmt_path(file, 0).expect("fixture path must canonicalize");
-        let size = size
-            .file_size(options::CONVENTIONAL)
-            .expect("size must format");
-        writeln!(w, "{:>10} │ {}", size, path)
-    }
-
-    fn render_plumbing<W: Write>(w: &mut W, path: &Path, size: u64) -> io::Result<()> {
-        let canon = canonical(path).expect("fixture path must canonicalize");
-        let canon = canon.as_os_str().to_str().expect("path must be utf8");
-        writeln!(w, "{}, {}", size, canon)
-    }
-
-    fn render_summary_porcelain<W: Write>(
-        w: &mut W,
-        mode: Mode,
-        found: u64,
-        size: u64,
-    ) -> io::Result<()> {
-        let kind = match mode {
-            Mode::File => "files",
-            Mode::Dir => "directories",
-        };
-        let size = size.file_size(options::CONVENTIONAL).unwrap();
-        writeln!(w, "Found {} {} with a total size of {}", found, kind, size)
-    }
-
-    fn render_summary_plumbing<W: Write>(w: &mut W, found: u64, size: u64) -> io::Result<()> {
-        writeln!(w, "-----")?;
-        writeln!(w, "{}, {}", size, found)
-    }
-
     #[test]
     fn porcelain_file_output_is_byte_for_byte() {
-        let file = PathBuf::from(TEST_DIR).join("file0");
+        let file: PathBuf = PathBuf::from(TEST_DIR).join("file0");
+        let entry: DirEntry = entry_for(&file);
+        let mut cfg: Config = Config::default();
+        cfg.plumbing_mode = false;
         let mut out: Vec<u8> = Vec::new();
-        render_porcelain(&mut out, &file, 41).unwrap();
+        print_file(&mut out, &entry, &cfg).unwrap();
         assert_eq!(out, expected_porcelain(&file, 41).into_bytes());
     }
 
     #[test]
     fn porcelain_dir_output_is_byte_for_byte() {
-        let dir = PathBuf::from(TEST_DIR).join("sub_dir");
+        let dir: PathBuf = PathBuf::from(TEST_DIR).join("sub_dir");
+        let mut cfg: Config = Config::default();
+        cfg.plumbing_mode = false;
         let mut out: Vec<u8> = Vec::new();
-        render_porcelain(&mut out, &dir, 141).unwrap();
+        print_dir(&mut out, &dir, 141, &cfg).unwrap();
         assert_eq!(out, expected_porcelain(&dir, 141).into_bytes());
     }
 
     #[test]
     fn plumbing_file_output_is_byte_for_byte() {
-        let file = PathBuf::from(TEST_DIR).join("file0");
+        let file: PathBuf = PathBuf::from(TEST_DIR).join("file0");
+        let entry: DirEntry = entry_for(&file);
+        let cfg: Config = Config::default();
         let mut out: Vec<u8> = Vec::new();
-        render_plumbing(&mut out, &file, 41).unwrap();
+        print_file(&mut out, &entry, &cfg).unwrap();
         assert_eq!(out, expected_plumbing(&file, 41).into_bytes());
     }
 
     #[test]
     fn plumbing_dir_output_is_byte_for_byte() {
-        let dir = PathBuf::from(TEST_DIR).join("sub_dir");
+        let dir: PathBuf = PathBuf::from(TEST_DIR).join("sub_dir");
+        let cfg: Config = Config::default();
         let mut out: Vec<u8> = Vec::new();
-        render_plumbing(&mut out, &dir, 141).unwrap();
+        print_dir(&mut out, &dir, 141, &cfg).unwrap();
         assert_eq!(out, expected_plumbing(&dir, 141).into_bytes());
     }
 
     #[test]
     fn summary_porcelain_output_is_byte_for_byte() {
+        let mut cfg: Config = Config::default();
+        cfg.plumbing_mode = false;
         let mut out: Vec<u8> = Vec::new();
-        render_summary_porcelain(&mut out, Mode::File, 3, 4096).unwrap();
-        let human = 4096u64.file_size(options::CONVENTIONAL).unwrap();
-        let expected = format!("Found {} {} with a total size of {}\n", 3, "files", human);
+        print_summary(&mut out, Mode::File, 3, 4096, &cfg).unwrap();
+        let human: String = 4096u64.file_size(options::CONVENTIONAL).unwrap();
+        let expected: String = format!("Found {} {} with a total size of {}\n", 3, "files", human);
         assert_eq!(out, expected.into_bytes());
     }
 
     #[test]
     fn summary_plumbing_output_is_byte_for_byte() {
+        let cfg: Config = Config::default();
         let mut out: Vec<u8> = Vec::new();
-        render_summary_plumbing(&mut out, 3, 4096).unwrap();
+        print_summary(&mut out, Mode::File, 3, 4096, &cfg).unwrap();
         assert_eq!(out, b"-----\n4096, 3\n".to_vec());
     }
 
     #[test]
     fn renderer_propagates_broken_pipe_unchanged() {
-        let mut w = FailingWriter {
+        let mut writer: FailingWriter = FailingWriter {
             kind: io::ErrorKind::BrokenPipe,
         };
-        let file = PathBuf::from(TEST_DIR).join("file0");
-        let err = render_porcelain(&mut w, &file, 41).unwrap_err();
+        let file: PathBuf = PathBuf::from(TEST_DIR).join("file0");
+        let cfg: Config = Config::default();
+        let err: io::Error = print_dir(&mut writer, &file, 41, &cfg).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::BrokenPipe);
         assert_eq!(err.to_string(), "synthetic write failure");
     }
 
     #[test]
     fn renderer_propagates_non_pipe_error_unchanged() {
-        let mut w = FailingWriter {
+        let mut writer: FailingWriter = FailingWriter {
             kind: io::ErrorKind::PermissionDenied,
         };
-        let file = PathBuf::from(TEST_DIR).join("file0");
-        let err = render_porcelain(&mut w, &file, 41).unwrap_err();
+        let file: PathBuf = PathBuf::from(TEST_DIR).join("file0");
+        let cfg: Config = Config::default();
+        let err: io::Error = print_dir(&mut writer, &file, 41, &cfg).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
         assert_eq!(err.to_string(), "synthetic write failure");
+    }
+
+    fn entry_for(path: &Path) -> DirEntry {
+        walkdir::WalkDir::new(TEST_DIR)
+            .max_depth(1)
+            .into_iter()
+            .filter_map(Result::ok)
+            .find(|entry: &DirEntry| entry.path() == path)
+            .expect("fixture entry must exist")
     }
 
     fn expected_porcelain(file: &Path, size: u64) -> String {

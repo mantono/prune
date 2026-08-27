@@ -40,10 +40,11 @@ fn main() {
         Mode::Dir => walk_dirs(&cfg),
     };
 
-    print_summary(cfg.mode(), found, size, &cfg);
+    let _ = print_summary(&mut std::io::stdout(), cfg.mode(), found, size, &cfg);
 }
 
 fn walk_files(cfg: &Config) -> (u64, u64) {
+    let mut stdout: std::io::Stdout = std::io::stdout();
     let limit: usize = cfg.limit.unwrap_or(usize::MAX);
     let filter: Filter = cfg.into();
     let files: Vec<DirEntry> = cfg
@@ -55,13 +56,16 @@ fn walk_files(cfg: &Config) -> (u64, u64) {
         .filter_map(|e| e.ok())
         .filter(|e: &DirEntry| filter.accept(e))
         .take(limit)
-        .inspect(|f| print_file(f, cfg))
+        .inspect(|f| {
+            let _ = print_file(&mut stdout, f, cfg);
+        })
         .collect();
 
     summarize(files)
 }
 
 fn walk_dirs(cfg: &Config) -> (u64, u64) {
+    let mut stdout: std::io::Stdout = std::io::stdout();
     let mut acc_size: HashMap<PathBuf, u64> = HashMap::new();
     let paths: Vec<PathBuf> = cfg.paths();
     let root: &Path = paths.first().unwrap();
@@ -82,7 +86,9 @@ fn walk_dirs(cfg: &Config) -> (u64, u64) {
         .filter(|(_, size)| **size >= cfg.min_size_bytes())
         .take(limit)
         .sorted_by(|(path0, _), (path1, _)| path0.cmp(path1))
-        .inspect(|(path, size)| print_dir(path, **size, cfg))
+        .inspect(|(path, size)| {
+            let _ = print_dir(&mut stdout, path, **size, cfg);
+        })
         .map(|(_, size)| *size)
         .collect_vec();
 
